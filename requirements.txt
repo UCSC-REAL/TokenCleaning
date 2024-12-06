@@ -1,0 +1,22 @@
+# TODO When updating flash-attn or torch in the future, make sure to update the version in the Dockerfile 
+torch
+deepspeed
+accelerate==0.31.0
+transformers
+tokenizers
+datasets
+peft
+sentencepiece
+bitsandbytes>=0.41.1
+protobuf
+open_clip_torch==2.18.0
+scipy
+packaging
+openai>=1.0.0
+tiktoken
+wandb
+gradio>=3.50.2
+
+
+
+
