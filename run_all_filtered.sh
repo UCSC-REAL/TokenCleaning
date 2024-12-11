@@ -18,8 +18,8 @@ base_models["meta-llama/Llama-3.2-3B"]="$(($BATCH_SIZE_PER_GPU*$NUM_GPUS)) ${BAT
 train_dataset_name='filtered-cured'
 
 
-model_types=("base" "${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3")
-data_types=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
+model_types=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3")
+data_types=( "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
 
 
 length=${#model_types[@]}
@@ -53,7 +53,7 @@ do
         model_type="${model_types[i]}"
         data_type="${data_types[i]}"
 
-        echo "###### Processing data type:: ${model_type}"
+        echo "###### Processing model type:: ${model_type}"
 
         if [[ $model_type == "base" ]]; then
             model_name_or_path=$base_model
@@ -87,7 +87,7 @@ do
 
             ## generate data ###
             echo "starting generate data..."
-            python open_instruct/generate_data.py --base_model $base_model --model_type $model_type --new_model_type $new_model_type --data_type $new_data_type --data_prop $data_prop 
+            python open_instruct/generate_data.py --base_model $base_model --model_type $model_type --new_model_type $new_model_type --data_type $new_data_type --data_prop $data_prop --sample_level_top_k_indices True
         fi
     done
 done

@@ -19,7 +19,7 @@ from tqdm.auto import tqdm
 import deepspeed
 import torch.nn.functional as F
 import numpy as np
-
+import re
 
 import transformers
 from transformers import (
@@ -39,6 +39,26 @@ from transformers import (
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 
 
+class TemporarilySeededRandom:
+    def __init__(self, seed):
+        """Temporarily set the random seed, and then restore it when exiting the context."""
+        self.seed = seed
+        self.stored_state = None
+        self.stored_np_state = None
+
+    def __enter__(self):
+        # Store the current random state
+        self.stored_state = random.getstate()
+        self.stored_np_state = np.random.get_state()
+
+        # Set the random seed
+        random.seed(self.seed)
+        np.random.seed(self.seed)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Restore the random state
+        random.setstate(self.stored_state)
+        np.random.set_state(self.stored_np_state)
 
 # cache_dir = '/tmp/huggingface/hub/'
 # os.makedirs(cache_dir, exist_ok=True)
@@ -695,45 +715,98 @@ def main():
         lm_datasets.set_format(type="pt")
         lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any())
 
-    train_dataset = lm_datasets["train"]
-    
-    ## load selected labels for the new datasets
-    if args.change_label == True:
-        if not args.model_type =='base' or  not '0' in args.data_type:
+        train_dataset = lm_datasets["train"]
+        
+        ###check the label
+        is_random_select_shift=True
+        
+        ## load selected labels for the new datasets        
+        # if args.change_label:
+        #     print("##### change the labels...\n")
+
+        #     subset_size = int(len(train_dataset) * 0.01)
+        #     data_idx = int(re.findall(r'\d+', args.data_type)[0])
+            
+        #     if is_random_select_shift: ##non-iterate form: shift the random and selected data; random data can help to correct the direction
+
+        #         ### select odd number idx dataset
+        #         if data_idx % 2 == 1: 
+        #         # if not '0' in args.data_type:
+        #             new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+
+        #             train_dataset = train_dataset.map(
+        #                 lambda examples, idx: {'labels': new_labels[idx]},
+        #                 with_indices=True
+        #             )
+                    
+        #             with TemporarilySeededRandom(data_idx * 10086):
+        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*5, replace=False)
+        #             train_dataset = train_dataset.select(random_indices)
+                    
+        #         else: ## for all token selection with subset
+                    
+        #             with TemporarilySeededRandom(data_idx * 10086):
+        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*2, replace=False)
+                        
+        #             train_dataset = train_dataset.select(random_indices)
+                    
+        #     else: ### non-iterate form
+                
+        #         if data_idx > 0:
+        #             new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+
+        #             train_dataset = train_dataset.map(
+        #                 lambda examples, idx: {'labels': new_labels[idx]},
+        #                 with_indices=True
+        #             )
+                    
+        #             with TemporarilySeededRandom(data_idx * 10086):
+        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*5, replace=False)
+        #             train_dataset = train_dataset.select(random_indices)
+                    
+        #         else:
+        #             with TemporarilySeededRandom(data_idx * 10086):
+        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*5, replace=False)
+        #             train_dataset = train_dataset.select(random_indices)
+        # else:
+        #     print("#### use the original labels...\n")
+        
+        if args.change_label:
             print("##### change the labels...\n")
-            new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
 
-            train_dataset = train_dataset.map(
-                lambda examples, idx: {'labels': new_labels[idx]},
-                with_indices=True
-            )
-    
-    ## label proportion test
-    # change_label=True
-    # if change_label == True:
-    #     print("##### change the labels...\n")
+            subset_size = int(len(train_dataset) * 0.01)
+            data_idx = int(re.findall(r'\d+', args.data_type)[0])
+            
+            if is_random_select_shift: ##non-iterate form: shift the random and selected data; random data can help to correct the direction
 
-    #     proportion=0.1
-    #     new_labels = train_dataset['labels']
-    #     for idx, label in enumerate(new_labels):
-    #         new_label = [-100] * len(label)
-            
-    #         # selected_size = np.random.choice(len(label), int(proportion * len(label)), replace=False)
-    #         # new_label = np.array(new_label)
-    #         # selected_size = [i for i in range(int(proportion * len(label)))]
-    #         # new_label[selected_size] = np.array(label)[selected_size]
-    #         # new_labels[idx] = new_label.tolist()
-    #         new_labels[idx] = new_label
-            
-    #     train_dataset = train_dataset.map(
-    #         lambda examples, idx: {'labels': new_labels[idx]},
-    #         with_indices=True
-    #     )
+                ### select odd number idx dataset
+                if data_idx % 2 == 1: 
+                # if not '0' in args.data_type:
+                    new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+
+                    train_dataset = train_dataset.map(
+                        lambda examples, idx: {'labels': new_labels[idx]},
+                        with_indices=True
+                    )                    
+                    
+                    
+            else: ### non-iterate form
+                
+                if data_idx > 0:
+                    new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+
+                    train_dataset = train_dataset.map(
+                        lambda examples, idx: {'labels': new_labels[idx]},
+                        with_indices=True
+                    )
+
+        else:
+            print("#### use the original labels...\n")
 
     # DataLoaders creation:
     train_dataloader = DataLoader(
         train_dataset, 
-        shuffle=False, 
+        shuffle=True, 
         collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding="longest"),
         batch_size=args.per_device_train_batch_size
     )
@@ -885,6 +958,7 @@ def main():
         batch_indices = []
         token_lengths = []
         pad_length = 1024
+        
         for step, batch in enumerate(active_dataloader):
             with accelerator.accumulate(model):
                 indices = batch["idx"]
@@ -914,19 +988,20 @@ def main():
 
                     shift_logits = shift_logits.view(-1, embedding_size)
                     shift_labels = shift_labels.view(-1)
+                    
                     # Enable model parallelism
                     shift_labels = shift_labels.to(shift_logits.device)
                     per_token_loss = loss_fct(shift_logits, shift_labels)
                     loss = per_token_loss.sum()
                     
                     # Save per-token loss (reshape back to match sequence dimensions if needed)
-                    per_token_loss = per_token_loss.view(batch["labels"].size(0), -1)  # Shape: [batch_size, seq_len]
-                    padded_token_losses = F.pad(per_token_loss, (0, pad_length - per_token_loss.shape[-1]),value=0)
-                    # padded_token_losses = accelerator.pad_across_processes(per_token_loss, dim=-1, pad_index=-100)
+                    # per_token_loss = per_token_loss.view(batch["labels"].size(0), -1)  # Shape: [batch_size, seq_len]
+                    # padded_token_losses = F.pad(per_token_loss, (0, pad_length - per_token_loss.shape[-1]),value=0)
+                    # # padded_token_losses = accelerator.pad_across_processes(per_token_loss, dim=-1, pad_index=-100)
 
-                    token_losses.append(padded_token_losses)  # Save loss to analyze later
-                    batch_indices.append(indices)
-                    token_lengths.append(torch.tensor([len(label[label != -100]) -1 for label in labels], device=accelerator.device, dtype=torch.long))
+                    # token_losses.append(padded_token_losses)  # Save loss to analyze later
+                    # batch_indices.append(indices)
+                    # token_lengths.append(torch.tensor([len(label[label != -100]) -1 for label in labels], device=accelerator.device, dtype=torch.long))
 
                 # We keep track of the loss at each logged step
                 total_loss += loss.detach().float()
@@ -980,20 +1055,19 @@ def main():
     accelerator.wait_for_everyone()
     
     ## gather the loss 
+    # all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
+    # all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
+    # all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
 
-    all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
-    all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
-    all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
-
-    sorted_indices = torch.argsort(all_batch_indices)
-    sorted_token_losses = all_token_losses[sorted_indices]
-    sorted_token_lengths = all_token_lengths[sorted_indices]
-    final_token_losses = []
-    for i, token_len in enumerate(sorted_token_lengths):
-        final_token_losses.append(sorted_token_losses[i, :token_len].tolist())  ##change
+    # sorted_indices = torch.argsort(all_batch_indices)
+    # sorted_token_losses = all_token_losses[sorted_indices]
+    # sorted_token_lengths = all_token_lengths[sorted_indices]
+    # final_token_losses = []
+    # for i, token_len in enumerate(sorted_token_lengths):
+    #     final_token_losses.append(sorted_token_losses[i, :token_len].tolist())  ##change
 
     ## save the loss
-    torch.save(final_token_losses, "final_token_losses.pt")
+    # torch.save(final_token_losses, "final_token_losses.pt")
 
     if args.with_tracking:
         accelerator.end_training()

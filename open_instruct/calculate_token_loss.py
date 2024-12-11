@@ -676,7 +676,7 @@ def main():
             token_losses = [] 
             batch_indices = []
             token_lengths = []
-            pad_length = 1024
+            pad_length = 2048
 
             for step, batch in enumerate(active_dataloader):
                 # with accelerator.accumulate(model):
@@ -752,21 +752,34 @@ def main():
 
     accelerator.wait_for_everyone()
     
-    # gather the loss 
-
-    all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
     all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
+    all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
     all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
+    
+    if accelerator.is_main_process:
+        # gather the loss 
+        all_batch_indices = all_batch_indices.cpu().tolist()
+        all_token_losses = all_token_losses.cpu().tolist()
+        all_token_lengths = all_token_lengths.cpu().tolist()
+        
+        ###Note: avoid the index (key) replicate for unbalance data split
+        gathered_results = {}
+        gathered_results = dict(zip(all_batch_indices, zip(all_token_losses, all_token_lengths))) 
+        
+        # Sort results by original index
+        sorted_results = sorted(gathered_results.items(), key=lambda x: x[0]) 
+        
+        sorted_token_losses = [x[1][0] for x in sorted_results]
+        sorted_token_lengths = [x[1][1] for x in sorted_results]
+        
+        
+        final_token_losses = []
+        for i, token_len in enumerate(sorted_token_lengths):
+            final_token_losses.append(sorted_token_losses[i][:token_len]) 
+            
 
-    sorted_indices = torch.argsort(all_batch_indices)
-    sorted_token_losses = all_token_losses[sorted_indices]
-    sorted_token_lengths = all_token_lengths[sorted_indices]
-    final_token_losses = []
-    for i, token_len in enumerate(sorted_token_lengths):
-        final_token_losses.append(sorted_token_losses[i, :token_len].tolist()) 
-
-    ## save the loss
-    torch.save(final_token_losses, f"results/loss/token_losses_{args.data_type}_{args.model_type}.pt")
+        ## save the loss
+        torch.save(final_token_losses, f"results/loss/token_losses_{args.data_type}_{args.model_type}.pt")
 
 
 if __name__ == "__main__":

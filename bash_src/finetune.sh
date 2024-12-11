@@ -51,10 +51,10 @@ accelerate launch \
     --with_tracking \
     --report_to tensorboard \
     --logging_steps 1 \
-    --reduce_loss sum \
     --model_type $model_type \
     --data_type $data_type \
     --change_label
+    # --reduce_loss sum \
 
 python open_instruct/merge_lora.py \
     --base_model_name_or_path $model_name_or_path \

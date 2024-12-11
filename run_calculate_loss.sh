@@ -1,7 +1,7 @@
 #!/bin/bash
 
-export CUDA_VISIBLE_DEVICES=0
-NUM_GPUS=1
+export CUDA_VISIBLE_DEVICES=6,7
+NUM_GPUS=2
 
 ######################################
 ############ base_models #############

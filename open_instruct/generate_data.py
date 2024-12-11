@@ -96,7 +96,14 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
     }
 
 
+def get_global_top_k_indices(data, k):
 
+    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist)]
+    
+    top_k = sorted(flattened, key=lambda x: x[0], reverse=True)[:k] ##loss
+    
+    top_k_indices = [(item[1], item[2]+1) for item in top_k]  #item[2]+1 fix the first label biased to match the position
+    return top_k_indices
 
 
 def main(
@@ -105,6 +112,9 @@ def main(
     model_type='test',
     new_model_type='test',
     data_prop: float = 1.0,
+    global_level_top_k_indices = False,
+    sample_level_top_k_indices = False,
+    reverse_loss  = False,
     ):
 
     train_data=f"selected_data/{data_type}.json"
@@ -144,33 +154,54 @@ def main(
     train_dataset = lm_datasets['train']
     
     
-    
+    raw_labels = train_dataset['labels']
     losses_pre = torch.load(f"results/loss/token_losses_{data_type}_{model_type}.pt")
     losses_cur = torch.load(f"results/loss/token_losses_{data_type}_{new_model_type}.pt")
+    
+    # initialize: ignore all tokens
+    selected_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+    
+    ##the calculation different loss of two models
+    if reverse_loss:
+        loss_diff = [(np.array(loss2) - np.array(loss1)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
+    else:
+        loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
 
 
-    loss_diff = []
-    loss_HL_prop = []
-    select_tokens_indices = []
-    for loss1, loss2 in zip(losses_pre, losses_cur):
-        # print(f"shape1: {len(loss1)}; shape2: {len(loss2)}")
-        diff = np.array(loss1)-np.array(loss2)
-        loss_diff.append(diff)
-        _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop))
-        select_tokens_indices.append((indices + 1).tolist()) ## indices +1 represents the biased value, which match the real token in the original dataset
-        loss_HL_prop.append(round(np.sum(diff>0)/len(diff) * 100, 3))
-        
+    all_token_count = sum(len(label) for label in raw_labels)
+    print(f"#### all token counting: {all_token_count}\n")
 
-    selected_labels=[]
-    for selected_indices, label in zip(select_tokens_indices, train_dataset['labels']):
-        # print(f"selected indices: {len(selected_indices)};; label: {len(label)}")
-        new_label = [-100] * len(label) ##default set as -100
-        for idx in selected_indices:
-            new_label[idx] = label[idx]
-        selected_labels.append(new_label)
-        
+    print(f"model pair: ({model_type}, {new_model_type}) -- dataset: {data_type}")
+    
+    # global-level top-k data selection
+    if global_level_top_k_indices: #global-level top-k
+        print("### start global level top-k selection...")
+        select_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
+        select_sample_idx = [item[0] for item in select_tokens_indices]
+        select_sample_idx = set(select_sample_idx)
+        print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
+        for i, j in select_tokens_indices:
+                selected_labels[i][j] = raw_labels[i][j] 
+
+    #sample-level top-k
+    elif sample_level_top_k_indices: #sample-level top-k
+        print("### start sample level top-k selection...")
+
+        loss_diff = []
+        select_tokens_indices = []
+        for diff in loss_diff:
+            _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop))
+            select_tokens_indices.append((indices + 1).tolist()) ## indices +1 represents the biased value, which match the real token in the original dataset
+            
+        for i, selected_indices, label in enumerate(zip(select_tokens_indices, raw_labels)):
+            for j in selected_indices:
+                selected_labels[i][j] = label[j]
+    
+    else:
+        print("please choose the token-level selection method: global-level or sample-level!")
+        raise NotImplementedError
+    
     ### extract the sample from the original dataset and store the new dataset
-
     torch.save(selected_labels, f"results/label/token_labels_{data_type}.pt")
 
 

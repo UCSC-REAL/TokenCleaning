@@ -4,19 +4,20 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 NUM_GPUS=8
 
+
+BATCH_SIZE_PER_GPU=3
+
 ######################################
 ############ base_models #############
-
 declare -A base_models
-# base_models["meta-llama/Llama-2-7b-hf"]="128 4 4096"  
 # base_models["meta-llama/Meta-Llama-3.1-8B"]="8 1 128" # TOTAL_BATCH_SIZE BATCH_SIZE_PER_GPU max_seq_length
-# base_models["mistralai/Mistral-7B-v0.3"]="128 4 2048"
-base_models["meta-llama/Llama-3.2-3B"]="$NUM_GPUS 1 2048"
+base_models["meta-llama/Llama-3.2-3B"]="$(($BATCH_SIZE_PER_GPU*$NUM_GPUS)) ${BATCH_SIZE_PER_GPU} 2048"
+
 
 ## # model_types used for ablation study, which determines the finetuned model
 model_types=('base')
 
-data_type=random
+data_type="filtered-cured"
 
 #############################################################
 ######## model finetuning on selected training data ######### 
@@ -26,9 +27,8 @@ echo "###### All data types here:: ${model_types[@]}"
 echo "###### All training datasets here:: ${TRAIN_DATASET_LIST[@]}"
 
 
-cluster_root_path="output" ## . for local
-
-# cluster_root_path="/mnt/server0-A/jinlong/less-output" ##  
+# cluster_root_path="output" ## . for local
+cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 
 mkdir -p $cluster_root_path
 
@@ -42,7 +42,7 @@ do
 
     for model_type in "${model_types[@]}"
     do
-        echo "###### Processing data type:: ${model_type}"
+        echo "###### Processing model type:: ${model_type}"
 
         if [[ $model_type == "base" ]]; then
             model_name_or_path=$base_model
@@ -89,14 +89,12 @@ do
             --report_to tensorboard \
             --logging_steps 1 \
             --reduce_loss sum
-            # --use_qlora 
 
         python open_instruct/merge_lora.py \
             --base_model_name_or_path $model_name_or_path \
             --lora_model_name_or_path $cluster_root_path/models/${base_model}/lora_${data_type}/ \
             --output_dir $cluster_root_path/models/${base_model}/lora_merged_${model_type}/ \
             --save_tokenizer
-            # --qlora
 
         sleep 10s
 
@@ -105,3 +103,4 @@ do
     done
 done
 
+echo "finish model traning!!"
