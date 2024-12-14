@@ -416,6 +416,18 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
         'attention_mask': attention_mask.flatten(),
     }
 
+def is_list_equal(list1, list2):
+    if len(list1) != len(list2):
+        return False
+    
+    for a, b in zip(list1, list2):
+        if isinstance(a, list) and isinstance(b, list):
+            if not is_list_equal(a, b):  
+                return False
+        elif a != b:
+            return False
+    
+    return True
 
 def save_with_accelerate(accelerator, model, tokenizer, output_dir, args):
     # set the generation config to an empty setting to be safe.
@@ -773,32 +785,46 @@ def main():
         
         if args.change_label:
             print("##### change the labels...\n")
-
-            subset_size = int(len(train_dataset) * 0.01)
-            data_idx = int(re.findall(r'\d+', args.data_type)[0])
+            data_idx = int(re.findall(r'\d+', args.data_type)[-1])
+            
+            print(f"current data type idx: {data_idx}")
             
             if is_random_select_shift: ##non-iterate form: shift the random and selected data; random data can help to correct the direction
-
+                print("using the random select iteration form")
                 ### select odd number idx dataset
                 if data_idx % 2 == 1: 
-                # if not '0' in args.data_type:
+                    print("changing the data labels")
                     new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
-
+                    orig_labels = train_dataset['labels']
                     train_dataset = train_dataset.map(
                         lambda examples, idx: {'labels': new_labels[idx]},
                         with_indices=True
-                    )                    
-                    
-                    
+                    )                 
+                       
+                    if not is_list_equal(new_labels, orig_labels):
+                        print("successful use the new labels")
+                    else:
+                        print("fail to use the new labels..")
+                        raise NotImplementedError
+                        
             else: ### non-iterate form
-                
-                if data_idx > 0:
-                    new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+                print("using the non iteration form")
 
+                if data_idx > 0:
+                    print("changing the data labels")
+
+                    new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+                    orig_labels = train_dataset['labels']
+                    
                     train_dataset = train_dataset.map(
                         lambda examples, idx: {'labels': new_labels[idx]},
                         with_indices=True
                     )
+                    if not is_list_equal(new_labels, orig_labels):
+                        print("successful use the new labels")
+                    else:
+                        print("fail to use the new labels..")
+                        raise NotImplementedError
 
         else:
             print("#### use the original labels...\n")

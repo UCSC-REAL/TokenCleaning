@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-export CUDA_VISIBLE_DEVICES=6,7
-NUM_GPUS=2
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5
+NUM_GPUS=6
 
 # export CUDA_VISIBLE_DEVICES=6
 # NUM_GPUS=1
@@ -18,19 +18,29 @@ base_models["meta-llama/Llama-3.2-3B"]="$(($BATCH_SIZE_PER_GPU*$NUM_GPUS)) ${BAT
 # train_dataset_name='filtered-cured-all-iter-sample-subset'
 # train_dataset_name='filtered-cured-50k-all-iter-sample-subset-small'
 
-Train_DATASET_LIST=('filtered-cured-50k-all-iter-sample-subset-small' 'filtered-cured-50k-all-iter-global-subset-small')
+# Train_DATASET_LIST=('filtered-cured-50k-all-sample-subset-small' 'filtered-cured-50k-all-global-subset-small') #
+
+# Train_DATASET_LIST=('filtered-cured-50k-all-iter-global-subset-small') #
+
+# Train_DATASET_LIST=('filtered-cured-50k-all-iter-sample-subset-small-new' 'filtered-cured-50k-all-iter-global-subset-small-new') #
+
+Train_DATASET_LIST=('filtered-cured-50k-all-iter-global-subset-small-new') #
+
 
 for train_dataset_name in "${Train_DATASET_LIST[@]}" 
 do
     echo "##### train_dataset_name: ${train_dataset_name}"
-    model_types=("base" "${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3"  "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8")
-    data_types=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
 
+    # model_types=("base" "${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3"  "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8")
+    # data_types=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
+
+    model_types=("${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3"  "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8")
+    data_types=("${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
 
     length=${#model_types[@]}
 
     data_prop=0.4 #0.3
-    main_process_port=29504
+    main_process_port=29505
 
     #############################################################
     ######## model finetuning on selected training data ######### 
@@ -88,17 +98,30 @@ do
 
                 ## generate data ###
                 echo "starting generate data..."
-                python open_instruct/generate_data.py \
-                    --base_model $base_model \
-                    --model_type $model_type \
-                    --new_model_type $new_model_type \
-                    --data_type $new_data_type \
-                    --data_prop $data_prop \
-                    --sample_level_top_k_indices True 
-                    # --reverse_loss True
+                if [[ "$train_dataset_name" == *"global"* ]]; then
+                    python open_instruct/generate_data.py \
+                        --base_model $base_model \
+                        --model_type $model_type \
+                        --new_model_type $new_model_type \
+                        --data_type $new_data_type \
+                        --data_prop $data_prop \
+                        --global_level_top_k_indices True 
+
+                elif [[ "$train_dataset_name" == *"sample"* ]]; then
+                    python open_instruct/generate_data.py \
+                        --base_model $base_model \
+                        --model_type $model_type \
+                        --new_model_type $new_model_type \
+                        --data_type $new_data_type \
+                        --data_prop $data_prop \
+                        --sample_level_top_k_indices True 
+                else
+                    echo "out of global or sample. please check the train dataset name"
+                fi
+
             fi
         done
     done
 done
 
-# nohup bash run_all.sh > zzz_sample_iter_subset-small.log &
+# nohup bash run_all.sh > zzz_sample_non_iter_subset_small_new.log &
