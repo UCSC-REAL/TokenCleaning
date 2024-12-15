@@ -182,23 +182,23 @@ def main(
         print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
         for i, j in select_tokens_indices:
                 selected_labels[i][j] = raw_labels[i][j] 
-
+        
     #sample-level top-k
     elif sample_level_top_k_indices: #sample-level top-k
         print("### start sample level top-k selection...")
 
-        loss_diff = []
         select_tokens_indices = []
+
         for diff in loss_diff:
-            _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop))
+            _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop), largest=True)
             select_tokens_indices.append((indices + 1).tolist()) ## indices +1 represents the biased value, which match the real token in the original dataset
-            
-        for i, selected_indices, label in enumerate(zip(select_tokens_indices, raw_labels)):
+        
+        for i, (selected_indices, label) in enumerate(zip(select_tokens_indices, raw_labels)):
             for j in selected_indices:
                 selected_labels[i][j] = label[j]
-    
+                
     else:
-        print("please choose the token-level selection method: global-level or sample-level!")
+        print("Please choose the token-level selection method: global-level or sample-level!")
         raise NotImplementedError
     
     ### extract the sample from the original dataset and store the new dataset
