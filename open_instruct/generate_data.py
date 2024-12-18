@@ -114,6 +114,8 @@ def main(
     data_prop: float = 1.0,
     global_level_top_k_indices = False,
     sample_level_top_k_indices = False,
+    union_level_top_k_indices = False,
+    additional_two_tokens_level_top_k_indices = False,
     reverse_loss  = False,
     ):
 
@@ -197,8 +199,73 @@ def main(
             for j in selected_indices:
                 selected_labels[i][j] = label[j]
                 
+    elif union_level_top_k_indices:
+        print("### start union level top-k selection...")
+
+        ### global-level
+        selected_global_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+        select_global_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
+        for i, j in select_global_tokens_indices:
+                selected_global_labels[i][j] = raw_labels[i][j] 
+    
+        ### sample-level 
+        selected_sample_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+        select_sample_tokens_indices = []
+        for diff in loss_diff:
+            _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop), largest=True)
+            select_sample_tokens_indices.append((indices + 1).tolist()) ## indices +1 represents the biased value, which match the real token in the original dataset    
+        for i, (selected_indices, label) in enumerate(zip(select_sample_tokens_indices, raw_labels)):
+            for j in selected_indices:
+                selected_sample_labels[i][j] = label[j]
+    
+        ## calculate the union label
+        for i, (selected_global_labels_per_sample, selected_sample_labels_per_sample) in enumerate(zip(selected_global_labels, selected_sample_labels)):
+            for j, (global_label, sample_label) in enumerate(zip(selected_global_labels_per_sample, selected_sample_labels_per_sample)):
+                if global_label != -100 or sample_label != -100:
+                    chosen_label = global_label if global_label != -100 else sample_label
+                    
+                    selected_labels[i][j] = chosen_label
+                    
+    elif additional_two_tokens_level_top_k_indices:
+        print("### start additional_two_tokens level top-k selection...")
+
+        ### global-level
+        selected_global_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+        select_global_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
+        for i, j in select_global_tokens_indices:
+                selected_global_labels[i][j] = raw_labels[i][j] 
+                ## two more tokens
+                if j + 1 < len(raw_labels[i]):
+                    selected_global_labels[i][j+1] = raw_labels[i][j+1] 
+                if j + 2 < len(raw_labels[i]):
+                    selected_global_labels[i][j+2] = raw_labels[i][j+2] 
+    
+    
+        ### sample-level 
+        selected_sample_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+        select_sample_tokens_indices = []
+        for diff in loss_diff:
+            _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop), largest=True)
+            select_sample_tokens_indices.append((indices + 1).tolist()) ## indices +1 represents the biased value, which match the real token in the original dataset    
+        for i, (selected_indices, label) in enumerate(zip(select_sample_tokens_indices, raw_labels)):
+            for j in selected_indices:
+                selected_sample_labels[i][j] = label[j]
+                ### two more tokens
+                if j + 1 < len(label):
+                    selected_sample_labels[i][j+1] = label[j+1] 
+                if j + 2 < len(label):
+                    selected_sample_labels[i][j+2] = label[j+2] 
+    
+        ## calculate the union label
+        for i, (selected_global_labels_per_sample, selected_sample_labels_per_sample) in enumerate(zip(selected_global_labels, selected_sample_labels)):
+            for j, (global_label, sample_label) in enumerate(zip(selected_global_labels_per_sample, selected_sample_labels_per_sample)):
+                if global_label != -100 or sample_label != -100:
+                    chosen_label = global_label if global_label != -100 else sample_label
+                    
+                    selected_labels[i][j] = chosen_label
+                    
     else:
-        print("Please choose the token-level selection method: global-level or sample-level!")
+        print("Please choose the token-level selection method: (1) global-level, (2) sample-level or (3) union-level!")
         raise NotImplementedError
     
     ### extract the sample from the original dataset and store the new dataset

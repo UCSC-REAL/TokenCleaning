@@ -1,10 +1,12 @@
 #!/bin/bash
 
 
-export CUDA_VISIBLE_DEVICES=6,7
-NUM_GPUS=2
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5
+NUM_GPUS=6
 
 
+
+start_time=$(date +%s)
 
 BATCH_SIZE_PER_GPU=3
 
@@ -14,17 +16,15 @@ declare -A base_models
 # base_models["meta-llama/Meta-Llama-3.1-8B"]="8 1 128" # TOTAL_BATCH_SIZE BATCH_SIZE_PER_GPU max_seq_length
 base_models["meta-llama/Llama-3.2-3B"]="$(($BATCH_SIZE_PER_GPU*$NUM_GPUS)) ${BATCH_SIZE_PER_GPU} 2048"
 
-# train_dataset_name='filtered-cured-all-iter-sample-subset'
-# train_dataset_name='filtered-cured-50k-all-iter-sample-subset-small'
+# Train_DATASET_LIST=('filtered-cured-50k-all-iter-sample-subset-small-new' 'filtered-cured-50k-all-iter-global-subset-small-new') #
+# Train_DATASET_LIST=('filtered-cured-50k-all-non-iter-sample-subset-new' 'filtered-cured-50k-all-non-iter-global-subset-new') #
 
-# Train_DATASET_LIST=('filtered-cured-50k-all-sample-subset-small' 'filtered-cured-50k-all-global-subset-small') #
+# Train_DATASET_LIST=('filtered-cured-50k-all-iter-union-subset-small-new') #
 
-# Train_DATASET_LIST=('filtered-cured-50k-all-iter-global-subset-small') #
+Train_DATASET_LIST=('filtered-cured-50k-all-iter-additional_two_tokens-subset-small-new') #
 
-Train_DATASET_LIST=('filtered-cured-50k-all-iter-sample-subset-small-new' 'filtered-cured-50k-all-iter-global-subset-small-new') #
-
-# Train_DATASET_LIST=('filtered-cured-50k-all-iter-sample-subset-small-new') #
-
+data_prop=0.3 #0.3
+main_process_port=29516
 
 for train_dataset_name in "${Train_DATASET_LIST[@]}" 
 do
@@ -33,10 +33,12 @@ do
     model_types=("base" "${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3"  "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8")
     data_types=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
 
-    length=${#model_types[@]}
 
-    data_prop=0.3 #0.3
-    main_process_port=29516
+    # model_types=("base" "${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3")
+    # data_types=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
+
+
+    length=${#model_types[@]}
 
     #############################################################
     ######## model finetuning on selected training data ######### 
@@ -113,6 +115,23 @@ do
                         --data_prop $data_prop \
                         --sample_level_top_k_indices True 
 
+                elif [[ "$train_dataset_name" == *"union"* ]]; then
+                    python open_instruct/generate_data.py \
+                        --base_model $base_model \
+                        --model_type $model_type \
+                        --new_model_type $new_model_type \
+                        --data_type $new_data_type \
+                        --data_prop $data_prop \
+                        --union_level_top_k_indices True 
+                
+                elif [[ "$train_dataset_name" == *"additional_two_tokens"* ]]; then ## under union
+                    python open_instruct/generate_data.py \
+                        --base_model $base_model \
+                        --model_type $model_type \
+                        --new_model_type $new_model_type \
+                        --data_type $new_data_type \
+                        --data_prop $data_prop \
+                        --additional_two_tokens_level_top_k_indices True 
                 else
                     echo "out of global or sample. please check the train dataset name"
 
@@ -122,4 +141,14 @@ do
     done
 done
 
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+minutes=$((elapsed_time / 60))
+
+echo "Elapsed time: $elapsed_time seconds"
+
+
 # nohup bash run_all.sh > zzz_sample_iter_subset_small_new.log &
+# nohup bash run_all.sh > zzz_sample_non_iter_subset_small_new.log &
+# nohup bash run_all.sh > zzz_sample_iter_subset_small_new-union.log &
+# nohup bash run_all.sh > zzz_sample_iter_subset_small_new-additional-two-tokens.log &
