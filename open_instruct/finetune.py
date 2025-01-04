@@ -60,10 +60,24 @@ class TemporarilySeededRandom:
         random.setstate(self.stored_state)
         np.random.set_state(self.stored_np_state)
 
-# cache_dir = '/tmp/huggingface/hub/'
-# os.makedirs(cache_dir, exist_ok=True)
 
-# cache_dir=None
+def get_random_k_indices(data, k, seed=42):
+    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist)]
+    with TemporarilySeededRandom(seed):
+        random_k = random.sample(flattened, k)
+    random_k_indices = [(item[1], item[2]) for item in random_k]  # item[2]+1 check the bias
+    return random_k_indices
+
+
+def get_global_top_k_indices(data, k):
+
+    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist)]
+    
+    top_k = sorted(flattened, key=lambda x: x[0], reverse=True)[:k] ##loss
+    
+    top_k_indices = [(item[1], item[2]+1) for item in top_k]  #item[2]+1 fix the first label biased to match the position
+    return top_k_indices
+
 
 
 logger = get_logger(__name__)
@@ -309,11 +323,21 @@ def parse_args():
         default='random',
         help='default data set',
     )
+    # parser.add_argument(
+    #     '--change_label',
+    #     action='store_true',
+    #     help='whether to change the labels of data',
+    # )
     parser.add_argument(
-        '--change_label',
-        action='store_true',
-        help='whether to change the labels of data',
+        '--token_select_pattern',
+        default='all_token_select',
+        choices=['random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"],  
+        help='Pattern for token selection. You can select one or more of: "random_semi_shift", "semi_select", "o". Default is "random"',
     )
+    parser.add_argument(
+        "--data_prop", type=float, default=0.3, help="Token proportion selected"
+    )
+    
     args = parser.parse_args()
     # Sanity checks
     if args.dataset_name is None and args.train_file is None:
@@ -729,105 +753,112 @@ def main():
 
         train_dataset = lm_datasets["train"]
         
-        ###check the label
-        is_random_select_shift=True
-        
-        ## load selected labels for the new datasets        
-        # if args.change_label:
-        #     print("##### change the labels...\n")
 
-        #     subset_size = int(len(train_dataset) * 0.01)
-        #     data_idx = int(re.findall(r'\d+', args.data_type)[0])
+
+        #############################################
+        ############# token_select_pattern ##########
+        #############################################
+        orig_labels = train_dataset['labels']
+        all_token_count = sum(len(label) for label in orig_labels)
             
-        #     if is_random_select_shift: ##non-iterate form: shift the random and selected data; random data can help to correct the direction
-
-        #         ### select odd number idx dataset
-        #         if data_idx % 2 == 1: 
-        #         # if not '0' in args.data_type:
-        #             new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
-
-        #             train_dataset = train_dataset.map(
-        #                 lambda examples, idx: {'labels': new_labels[idx]},
-        #                 with_indices=True
-        #             )
-                    
-        #             with TemporarilySeededRandom(data_idx * 10086):
-        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*5, replace=False)
-        #             train_dataset = train_dataset.select(random_indices)
-                    
-        #         else: ## for all token selection with subset
-                    
-        #             with TemporarilySeededRandom(data_idx * 10086):
-        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*2, replace=False)
-                        
-        #             train_dataset = train_dataset.select(random_indices)
-                    
-        #     else: ### non-iterate form
-                
-        #         if data_idx > 0:
-        #             new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
-
-        #             train_dataset = train_dataset.map(
-        #                 lambda examples, idx: {'labels': new_labels[idx]},
-        #                 with_indices=True
-        #             )
-                    
-        #             with TemporarilySeededRandom(data_idx * 10086):
-        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*5, replace=False)
-        #             train_dataset = train_dataset.select(random_indices)
-                    
-        #         else:
-        #             with TemporarilySeededRandom(data_idx * 10086):
-        #                 random_indices = np.random.choice(len(train_dataset), size=subset_size*5, replace=False)
-        #             train_dataset = train_dataset.select(random_indices)
-        # else:
-        #     print("#### use the original labels...\n")
-        
-        if args.change_label:
-            print("##### change the labels...\n")
+        #### random_semi_shift: shift the random and selected data; random data can help to correct the direction ##
+        if args.token_select_pattern == 'random_semi_shift': 
+            print("*** using the random select iteration form *** ")
+            
             data_idx = int(re.findall(r'\d+', args.data_type)[-1])
-            
             print(f"current data type idx: {data_idx}")
             
-            if is_random_select_shift: ##non-iterate form: shift the random and selected data; random data can help to correct the direction
-                print("using the random select iteration form")
-                ### select odd number idx dataset
-                if data_idx % 2 == 1: 
-                    print("changing the data labels")
-                    new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
-                    orig_labels = train_dataset['labels']
-                    train_dataset = train_dataset.map(
-                        lambda examples, idx: {'labels': new_labels[idx]},
-                        with_indices=True
-                    )                 
-                       
-                    if not is_list_equal(new_labels, orig_labels):
-                        print("successful use the new labels")
-                    else:
-                        print("fail to use the new labels..")
-                        raise NotImplementedError
-                        
-            else: ### non-iterate form
-                print("using the non iteration form")
-
-                if data_idx > 0:
-                    print("changing the data labels")
-
-                    new_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
-                    orig_labels = train_dataset['labels']
+            ### select odd number idx dataset
+            if data_idx % 2 == 1: 
+                print("changing the data labels")
+                selected_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+            else:
+                selected_labels = orig_labels
+                
+        ### semi supervised form ##
+        elif args.token_select_pattern == 'semi_select': 
+            print("*** using the Semi_Supervised Select form ***")
+            data_idx = int(re.findall(r'\d+', args.data_type)[-1])
+            print(f"current data type idx: {data_idx}")
+            
+            if data_idx > 0:
+                print("changing the data labels")
+                selected_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")  
+                
+                ### add random selected data samples to avoid: pooler get pooler
+                # random_data_prop = 0.1
+                # print(f"*** add additional data to avoid pooler get pooler with random data prop: {random_data_prop} ***")
+                # with TemporarilySeededRandom(data_idx):
+                #         random_selected_samples = random.sample(list(range(len(orig_labels))), int(random_data_prop * len(orig_labels)))
+                # for idx in random_selected_samples:
+                #     selected_labels[idx] = orig_labels[idx]
                     
-                    train_dataset = train_dataset.map(
-                        lambda examples, idx: {'labels': new_labels[idx]},
-                        with_indices=True
-                    )
-                    if not is_list_equal(new_labels, orig_labels):
-                        print("successful use the new labels")
-                    else:
-                        print("fail to use the new labels..")
-                        raise NotImplementedError
+                #### add random tokens
+                random_data_prop = 0.3
+                random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * random_data_prop))      
+                for i, j in random_tokens_indices:
+                    selected_labels[i][j] = orig_labels[i][j]
+                    
+            else: ### warm-up phase
+                selected_labels = orig_labels   
+            
 
+                
+        ## random selection ##
+        elif args.token_select_pattern == 'random_select': 
+            print("*** using the Random Select selection ***")
+            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
+
+            random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * args.data_prop))
+            select_sample_idx = [item[0] for item in random_tokens_indices]
+            select_sample_idx = set(select_sample_idx)
+            print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(orig_labels)}")        
+            for i, j in random_tokens_indices:
+                selected_labels[i][j] = orig_labels[i][j].item()
+                
+            # for i in range(len(selected_labels)):
+            #     selected_labels[i] = torch.Tensor(selected_labels[i], dtype=torch.int32)
+
+        ## loss_ranking_select ##
+        elif args.token_select_pattern == 'loss_ranking_select': ## loss-based or ppl-based form
+            print("*** using the Loss or PPL-based Select form ***")
+            ## TODO: need to check the losses file
+            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{data_type}_{model_type}.pt"
+            print(f"Current loss file is: {loss_file}")
+            
+            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
+
+            losses_base_model = torch.load(loss_file)
+            
+            select_tokens_indices = get_global_top_k_indices(losses_base_model, int(all_token_count * args.data_prop))
+
+            select_sample_idx = [item[0] for item in select_tokens_indices]
+            select_sample_idx = set(select_sample_idx)
+            print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(orig_labels)}")        
+            for i, j in select_tokens_indices:
+                    selected_labels[i][j] = orig_labels[i][j].item() 
+                    
+        elif args.token_select_pattern == 'all_token_select':
+            print("*** using all original tokens (labels) ***")
+            selected_labels = orig_labels
+            
         else:
-            print("#### use the original labels...\n")
+            print(f"Unknown token select pattern: {args.token_select_pattern}!")
+            raise NotImplementedError
+                
+        
+        ### choose the selected labels or tokens
+        train_dataset = train_dataset.map(
+            lambda examples, idx: {'labels': selected_labels[idx]},
+            with_indices=True
+        )                 
+
+        # if not is_list_equal(selected_labels, train_dataset['labels']):
+        #     print("successful use the new selected labels")
+        # else:
+        #     print(f"fail to use the new selected labels because of the default token pattern: {args.token_select_pattern}")
+        #     raise NotImplementedError
+    
 
     # DataLoaders creation:
     train_dataloader = DataLoader(

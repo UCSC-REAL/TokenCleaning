@@ -11,6 +11,7 @@ TOTAL_BATCH_SIZE=$8
 cluster_root_path=$9
 data_prop=${10}
 main_process_port=${11}
+token_select_pattern=${12}
 
 train_data="selected_data/${data_type}.json"
 
@@ -53,7 +54,8 @@ accelerate launch \
     --logging_steps 1 \
     --model_type $model_type \
     --data_type $data_type \
-    --change_label
+    --token_select_pattern $token_select_pattern \
+    --data_prop $data_prop
     # --reduce_loss sum \
 
 python open_instruct/merge_lora.py \

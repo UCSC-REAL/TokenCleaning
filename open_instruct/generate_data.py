@@ -115,7 +115,9 @@ def main(
     global_level_top_k_indices = False,
     sample_level_top_k_indices = False,
     union_level_top_k_indices = False,
+    intersection_level_top_k_indices = False,
     additional_two_tokens_level_top_k_indices = False,
+    combine_loss_level_top_k_indices = False,
     reverse_loss  = False,
     ):
 
@@ -168,7 +170,10 @@ def main(
         loss_diff = [(np.array(loss2) - np.array(loss1)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
     else:
         loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
-
+        
+        # ### new loss diff form: w1*(loss1 -loss2) + (1-w1)*loss2 --> w1*loss1 - (2w1-1)*loss2
+        # beta =0.6
+        # loss_diff = [(beta * np.array(loss1) - (2 *beta -1) * np.array(loss2)).tolist()  for loss1, loss2 in zip(losses_pre, losses_cur)]
 
     all_token_count = sum(len(label) for label in raw_labels)
     print(f"#### all token counting: {all_token_count}\n")
@@ -179,6 +184,7 @@ def main(
     if global_level_top_k_indices: #global-level top-k
         print("### start global level top-k selection...")
         select_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
+
         select_sample_idx = [item[0] for item in select_tokens_indices]
         select_sample_idx = set(select_sample_idx)
         print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
@@ -226,6 +232,32 @@ def main(
                     
                     selected_labels[i][j] = chosen_label
                     
+    elif intersection_level_top_k_indices:
+        print("### start intersection level top-k selection...")
+
+        ### global-level
+        selected_global_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+        select_global_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
+        for i, j in select_global_tokens_indices:
+                selected_global_labels[i][j] = raw_labels[i][j] 
+    
+        ### sample-level 
+        selected_sample_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+        select_sample_tokens_indices = []
+        for diff in loss_diff:
+            _, indices = torch.topk(torch.tensor(diff), k=int(len(diff) * data_prop), largest=True)
+            select_sample_tokens_indices.append((indices + 1).tolist()) ## indices +1 represents the biased value, which match the real token in the original dataset    
+        for i, (selected_indices, label) in enumerate(zip(select_sample_tokens_indices, raw_labels)):
+            for j in selected_indices:
+                selected_sample_labels[i][j] = label[j]
+    
+        ## calculate the intersection label
+        for i, (selected_global_labels_per_sample, selected_sample_labels_per_sample) in enumerate(zip(selected_global_labels, selected_sample_labels)):
+            for j, (global_label, sample_label) in enumerate(zip(selected_global_labels_per_sample, selected_sample_labels_per_sample)):
+                if global_label != -100 and global_label == sample_label:
+                    
+                    selected_labels[i][j] = global_label
+
     elif additional_two_tokens_level_top_k_indices:
         print("### start additional_two_tokens level top-k selection...")
 
@@ -256,7 +288,7 @@ def main(
                 if j + 2 < len(label):
                     selected_sample_labels[i][j+2] = label[j+2] 
     
-        ## calculate the union label
+        ## calculate the add_two_tokens label
         for i, (selected_global_labels_per_sample, selected_sample_labels_per_sample) in enumerate(zip(selected_global_labels, selected_sample_labels)):
             for j, (global_label, sample_label) in enumerate(zip(selected_global_labels_per_sample, selected_sample_labels_per_sample)):
                 if global_label != -100 or sample_label != -100:
@@ -264,6 +296,21 @@ def main(
                     
                     selected_labels[i][j] = chosen_label
                     
+    elif combine_loss_level_top_k_indices: #global-level top-k + loss_top-k
+        print("### start global level top-k selection...")
+        select_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
+        
+        ### add solely losses_cur top-k tokens to avoid tradeoff
+        select_tokens_indices_cur = get_global_top_k_indices(losses_cur, int(all_token_count * data_prop))
+        select_tokens_indices +=select_tokens_indices_cur
+        
+        select_sample_idx = [item[0] for item in select_tokens_indices]
+        select_sample_idx = set(select_sample_idx)
+        print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")  
+        for i, j in select_tokens_indices:
+                selected_labels[i][j] = raw_labels[i][j] 
+                
+
     else:
         print("Please choose the token-level selection method: (1) global-level, (2) sample-level or (3) union-level!")
         raise NotImplementedError
