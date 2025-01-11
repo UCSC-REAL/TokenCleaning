@@ -4,7 +4,7 @@ import torch
 from functools import partial
 import numpy as np
 import fire
-
+import os
 
 def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add_bos=False):
     '''
@@ -105,26 +105,46 @@ def get_global_top_k_indices(data, k):
     top_k_indices = [(item[1], item[2]+1) for item in top_k]  #item[2]+1 fix the first label biased to match the position
     return top_k_indices
 
+def get_positive_indices(data):
+    positive_indices = [(i, j+1) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
+    return positive_indices
+
+def get_half_positive_indices(data):
+    selected_flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
+    top_half_positive = sorted(selected_flattened, key=lambda x: x[0], reverse=True)[:int(len(selected_flattened)/2)] ##loss
+
+    top_half_positive_indices = [(item[1], item[2]+1) for item in top_half_positive]
+    return top_half_positive_indices
+
+def  get_curve_positive_indices(losses_pre, losses_cur, alpha = 1.2, beta = 0.1):
+        
+    curve_positive_indices=[]
+    
+    for i, (sample_losses_pre, sample_losses_cur) in enumerate(zip(losses_pre, losses_cur)):
+        for j, (token_loss_pre, token_loss_cur) in enumerate(zip(sample_losses_pre, sample_losses_cur)):
+            if token_loss_pre > alpha * token_loss_cur + beta and token_loss_cur < 5: #linear split
+                curve_positive_indices.append((i, j+1))
+
+    return curve_positive_indices
+
 
 def main(
-    base_model=None,
-    data_type=None,
-    model_type='test',
-    new_model_type='test',
+    base_model_name_or_path='test',
+    ref_model_name_or_path='test',
+    train_data=None,
     data_prop: float = 1.0,
-    global_level_top_k_indices = False,
-    sample_level_top_k_indices = False,
-    union_level_top_k_indices = False,
-    intersection_level_top_k_indices = False,
-    additional_two_tokens_level_top_k_indices = False,
-    combine_loss_level_top_k_indices = False,
-    reverse_loss  = False,
+    select_token_level="sample",
+    reverse_loss = False,
     ):
-
-    train_data=f"selected_data/{data_type}.json"
-
-    tokenizer = AutoTokenizer.from_pretrained(base_model)
+    
+    tokenizer = AutoTokenizer.from_pretrained(base_model_name_or_path)
     raw_dataset = load_dataset("json", data_files=train_data)
+
+    ### rename
+    base_model_name = os.path.basename(base_model_name_or_path)
+    ref_model_name = os.path.basename(ref_model_name_or_path)
+    data_type= os.path.basename(train_data).split(".json")[0]
+
 
     if "prompt" in raw_dataset["train"].column_names and "completion" in raw_dataset["train"].column_names:
         encode_function = partial(
@@ -159,8 +179,9 @@ def main(
     
     
     raw_labels = train_dataset['labels']
-    losses_pre = torch.load(f"results/loss/token_losses_{data_type}_{model_type}.pt")
-    losses_cur = torch.load(f"results/loss/token_losses_{data_type}_{new_model_type}.pt")
+    
+    losses_pre = torch.load(f"results/loss/token_losses_{data_type}_{base_model_name}.pt")
+    losses_cur = torch.load(f"results/loss/token_losses_{data_type}_{ref_model_name}.pt")
     
     # initialize: ignore all tokens
     selected_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
@@ -178,10 +199,10 @@ def main(
     all_token_count = sum(len(label) for label in raw_labels)
     print(f"#### all token counting: {all_token_count}\n")
 
-    print(f"model pair: ({model_type}, {new_model_type}) -- dataset: {data_type}")
+    print(f"model pair: ({base_model_name}, {ref_model_name}) -- dataset: {data_type}")
     
     # global-level top-k data selection
-    if global_level_top_k_indices: #global-level top-k
+    if select_token_level == 'global': #global-level top-k
         print("### start global level top-k selection...")
         select_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
 
@@ -190,9 +211,44 @@ def main(
         print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
         for i, j in select_tokens_indices:
                 selected_labels[i][j] = raw_labels[i][j] 
-        
+                
+    # global-level positive data selection
+    elif select_token_level == 'global-positive': #global-level positive loss diff token
+        print("### start global-level positive loss diff selection...")
+
+        select_tokens_indices = get_positive_indices(loss_diff)
+
+        select_sample_idx = [item[0] for item in select_tokens_indices]
+        select_sample_idx = set(select_sample_idx)
+        print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
+        for i, j in select_tokens_indices:
+                selected_labels[i][j] = raw_labels[i][j] 
+                
+    # global-level positive data selection
+    elif select_token_level == 'global-half-positive': #global-level positive loss diff token
+        print("### start global-level half positive loss diff selection...")
+
+        select_tokens_indices = get_half_positive_indices(loss_diff)
+
+        select_sample_idx = [item[0] for item in select_tokens_indices]
+        select_sample_idx = set(select_sample_idx)
+        print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
+        for i, j in select_tokens_indices:
+                selected_labels[i][j] = raw_labels[i][j] 
+                
+    elif select_token_level == 'global-curve-positive': #global-level positive loss diff token
+        print("### start global-level curve positive loss diff selection...")
+
+        select_tokens_indices = get_curve_positive_indices(losses_pre, losses_cur, alpha=1.2, beta=0.1)
+
+        select_sample_idx = [item[0] for item in select_tokens_indices]
+        select_sample_idx = set(select_sample_idx)
+        print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
+        for i, j in select_tokens_indices:
+                selected_labels[i][j] = raw_labels[i][j] 
+                
     #sample-level top-k
-    elif sample_level_top_k_indices: #sample-level top-k
+    elif select_token_level == 'sample': #sample-level top-k
         print("### start sample level top-k selection...")
 
         select_tokens_indices = []
@@ -205,7 +261,21 @@ def main(
             for j in selected_indices:
                 selected_labels[i][j] = label[j]
                 
-    elif union_level_top_k_indices:
+    #sample-level positive
+    elif select_token_level == 'sample-positive':  # sample-level positive selection
+        print("### start sample level positive selection...")
+        select_tokens_indices = []
+
+        for diff in loss_diff:
+            positive_indices = [i+1 for i, value in enumerate(diff) if value > 0] #i+1 represents the token bias
+            select_tokens_indices.append(positive_indices)
+
+        for i, (selected_indices, label) in enumerate(zip(select_tokens_indices, raw_labels)):
+            for j in selected_indices:
+                selected_labels[i][j] = label[j]    
+                
+                
+    elif select_token_level == 'union':
         print("### start union level top-k selection...")
 
         ### global-level
@@ -232,7 +302,7 @@ def main(
                     
                     selected_labels[i][j] = chosen_label
                     
-    elif intersection_level_top_k_indices:
+    elif select_token_level == 'intersection':
         print("### start intersection level top-k selection...")
 
         ### global-level
@@ -258,7 +328,7 @@ def main(
                     
                     selected_labels[i][j] = global_label
 
-    elif additional_two_tokens_level_top_k_indices:
+    elif select_token_level == "additional_two_tokens":
         print("### start additional_two_tokens level top-k selection...")
 
         ### global-level
@@ -296,7 +366,7 @@ def main(
                     
                     selected_labels[i][j] = chosen_label
                     
-    elif combine_loss_level_top_k_indices: #global-level top-k + loss_top-k
+    elif select_token_level == "combine_loss": #global-level top-k + loss_top-k
         print("### start global level top-k selection...")
         select_tokens_indices = get_global_top_k_indices(loss_diff, int(all_token_count * data_prop))
         
@@ -312,12 +382,21 @@ def main(
                 
 
     else:
-        print("Please choose the token-level selection method: (1) global-level, (2) sample-level or (3) union-level!")
+        print("Please choose the token-level selection method from: (1) global, (2) sample, (3) union, (4) intersection (5) additional_two_tokens or (6) combine_loss!")
         raise NotImplementedError
     
+    
+    
+    ## save the loss
+    label_path = "results/label/"
+    if not os.path.exists(label_path):
+        os.makedirs(label_path)
+    
     ### extract the sample from the original dataset and store the new dataset
-    torch.save(selected_labels, f"results/label/token_labels_{data_type}.pt")
+    final_data_path = label_path+ f"token_labels_{data_type}.pt"
+    torch.save(selected_labels, final_data_path)
 
+    print(f"*** Token-level label has been stored in {final_data_path} ***")
 
 
 if __name__ == "__main__":

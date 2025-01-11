@@ -235,16 +235,6 @@ def parse_args():
         choices=['mean', 'sum'],
         help='How to reduce loss over tokens. Default is mean, but using sum can improve chat model performance.',
     )
-    parser.add_argument(
-        '--model_type',
-        default='base',
-        help='default model',
-    )
-    parser.add_argument(
-        '--data_type',
-        default='random',
-        help='default dataset',
-    )
 
     args = parser.parse_args()
     # Sanity checks
@@ -779,8 +769,16 @@ def main():
             
 
         ## save the loss
-        torch.save(final_token_losses, f"results/loss/token_losses_{args.data_type}_{args.model_type}.pt")
-
+        loss_path = "results/loss/"
+        if not os.path.exists(loss_path):
+            os.makedirs(loss_path)
+        
+        model_name = os.path.basename(args.model_name_or_path)
+        data_type= os.path.basename(args.train_file).split(".json")[0]
+        final_data_path = loss_path + f"token_losses_{data_type}_{model_name}.pt"
+        
+        torch.save(final_token_losses, final_data_path)
+        print(f"*** Token-level loss has been stored in {final_data_path} ***")
 
 if __name__ == "__main__":
     main()

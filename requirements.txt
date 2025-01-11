@@ -16,7 +16,7 @@ openai>=1.0.0
 tiktoken
 wandb
 gradio>=3.50.2
-
+fire
 
 
 

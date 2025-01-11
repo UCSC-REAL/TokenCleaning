@@ -313,13 +313,13 @@ def parse_args():
         default=None,
         help='Entity to use for logging to wandb.'
     )
+    # parser.add_argument(
+    #     '--model_type',
+    #     default='base',
+    #     help='default model',
+    # )
     parser.add_argument(
-        '--model_type',
-        default='base',
-        help='default model',
-    )
-    parser.add_argument(
-        '--data_type',
+        '--train_data_tag',
         default='random',
         help='default data set',
     )
@@ -765,25 +765,25 @@ def main():
         if args.token_select_pattern == 'random_semi_shift': 
             print("*** using the random select iteration form *** ")
             
-            data_idx = int(re.findall(r'\d+', args.data_type)[-1])
+            data_idx = int(re.findall(r'\d+', args.train_data_tag)[-1])
             print(f"current data type idx: {data_idx}")
             
             ### select odd number idx dataset
             if data_idx % 2 == 1: 
                 print("changing the data labels")
-                selected_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")
+                selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")
             else:
                 selected_labels = orig_labels
                 
         ### semi supervised form ##
         elif args.token_select_pattern == 'semi_select': 
             print("*** using the Semi_Supervised Select form ***")
-            data_idx = int(re.findall(r'\d+', args.data_type)[-1])
-            print(f"current data type idx: {data_idx}")
             
-            if data_idx > 0:
-                print("changing the data labels")
-                selected_labels = torch.load(f"results/label/token_labels_{args.data_type}.pt")  
+            # data_idx = int(re.findall(r'\d+', args.train_data_tag)[-1])
+            # print(f"current data type idx: {data_idx}")
+            # if data_idx > 0:
+                # print("changing the data labels")
+                # selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")  
                 
                 ### add random selected data samples to avoid: pooler get pooler
                 # random_data_prop = 0.1
@@ -794,14 +794,16 @@ def main():
                 #     selected_labels[idx] = orig_labels[idx]
                     
                 #### add random tokens
-                random_data_prop = 0.3
-                random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * random_data_prop))      
-                for i, j in random_tokens_indices:
-                    selected_labels[i][j] = orig_labels[i][j]
+                # random_data_prop = 0.3
+                # random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * random_data_prop))      
+                # for i, j in random_tokens_indices:
+                #     selected_labels[i][j] = orig_labels[i][j]
                     
-            else: ### warm-up phase
-                selected_labels = orig_labels   
-            
+            # else: ### warm-up phase
+                # selected_labels = orig_labels   
+                
+            print("changing the data labels")
+            selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")           
 
                 
         ## random selection ##
@@ -823,7 +825,7 @@ def main():
         elif args.token_select_pattern == 'loss_ranking_select': ## loss-based or ppl-based form
             print("*** using the Loss or PPL-based Select form ***")
             ## TODO: need to check the losses file
-            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{data_type}_{model_type}.pt"
+            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
             print(f"Current loss file is: {loss_file}")
             
             selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
@@ -845,13 +847,13 @@ def main():
         else:
             print(f"Unknown token select pattern: {args.token_select_pattern}!")
             raise NotImplementedError
-                
         
         ### choose the selected labels or tokens
-        train_dataset = train_dataset.map(
-            lambda examples, idx: {'labels': selected_labels[idx]},
-            with_indices=True
-        )                 
+        if args.token_select_pattern != 'all_token_select':
+            train_dataset = train_dataset.map(
+                lambda examples, idx: {'labels': selected_labels[idx]},
+                with_indices=True
+            )                 
 
         # if not is_list_equal(selected_labels, train_dataset['labels']):
         #     print("successful use the new selected labels")

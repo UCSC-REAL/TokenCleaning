@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,7
-NUM_GPUS=6
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+NUM_GPUS=8
 
 
 
@@ -24,13 +24,12 @@ base_models["meta-llama/Llama-3.2-3B"]="$(($BATCH_SIZE_PER_GPU*$NUM_GPUS)) ${BAT
 # Train_DATASET_LIST=('filtered-cured-50k-all-iter-combine-loss-subset-small-new') #
 
 # Train_DATASET_LIST=('filtered-cured-50k-all-non-iter-global') #
+# Train_DATASET_LIST=('filtered-cured-50k-non-iter-split-global-new') #
+Train_DATASET_LIST=("filtered-cured-50k-non-iter-split-global-new-randtok")
+data_prop=0.3 # 0.3
+main_process_port=29516
 
-sleep 3h
-
-Train_DATASET_LIST=('filtered-cured-50k-non-iter-split-global-new') #
-data_prop=0.5 # 0.3
-main_process_port=29518
-
+reference_model="meta-llama/Llama-3.1-8B-Instruct"
 
 token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 
@@ -185,4 +184,4 @@ echo "Elapsed time: $elapsed_time seconds"
 #  bash run_all.sh > zzz_filtered-cured-50k-non-iter-split-global.log 2>&1
 # bash run_all.sh > zzz_filtered-cured-50k-non-iter-split-global-new.log 2>&1
 # bash run_all.sh > zzz_filtered-cured-50k-non-iter-split-global-new-0.6.log 2>&1
-#  bash run_all_1.sh > zzz_filtered-cured-50k-non-iter-split-global-new-0.5.log 2>&1
+# bash run_all.sh > zzz_filtered-cured-50k-non-iter-split-global-new-randtok.log 2>&1
