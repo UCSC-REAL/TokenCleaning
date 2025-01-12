@@ -2,6 +2,8 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUS=8
 
+start_time=$(date +%s)
+
 #### basic config
 max_seq_length=2048
 BATCH_SIZE_PER_GPU=3 #3
@@ -30,13 +32,15 @@ token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_
 # train_dataset_name="filtered-cured-50k-active-split-global-positive"
 # train_dataset_name="filtered-cured-50k-active-split-sample-positive"
 
-train_dataset_name="filtered-cured-50k-active-split-global-half-positive"
+# train_dataset_name="filtered-cured-50k-active-split-global-half-positive"
+
+train_dataset_name="filtered-cured-10k-active-split-global-half-positive"
+
 
 # train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
 
 train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
 
-sleep 4h
 #### reference baseline: RHO one-shot
 # train_dataset_name="random_subset_50k_active_all"
 # train_data_tag_list=($train_dataset_name)
@@ -88,6 +92,13 @@ for data_prop in ${data_prop_list[@]}; do
 done
 
 
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+minutes=$((elapsed_time / 60))
+
+echo "Elapsed time: $elapsed_time seconds"
+
+
 # bash run_active_ref_model.sh > zzz_llama_3_8b_active_1k_samples.log 2>&1
 # bash run_active_ref_model.sh > zzz_llama_3_8b_active_10k_samples.log 2>&1
 
@@ -98,3 +109,4 @@ done
 
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-positive.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-half-positive.log &
+# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-10k-active-split-global-half-positive.log &
