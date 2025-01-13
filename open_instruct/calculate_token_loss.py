@@ -712,22 +712,15 @@ def main():
 
                     token_losses.append(padded_token_losses)  # Save loss to analyze later
                     batch_indices.append(indices)
-                    # token_lengths.append(torch.tensor([len(label[label != -100]) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
-                    token_lengths.append(torch.tensor([len(label) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
                     
+                    # token_lengths.append(torch.tensor([len(label[label != -100]) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
+                    # token_lengths.append(torch.tensor([len(label) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
                     # print(f"label:{shift_labels.shape};; per_token_loss: {per_token_loss.shape};; padded_token_losses; {padded_token_losses.shape} token lengths: {token_lengths[-1]}; ")
+                    # import pdb; pdb.set_trace()
+                    
                 ## We keep track of the loss at each logged step
                 total_loss += loss.detach().float()
                 
-                ### train
-                # accelerator.backward(loss)
-                # ### clip gradient norm. don't do this with deepspeed
-                # if accelerator.sync_gradients and args.clip_grad_norm > 0:
-                #     accelerator.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
-                # optimizer.step()
-                # optimizer.zero_grad()
-                # lr_scheduler.step() 
-
                 ## Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
                     progress_bar.update(1) ## tdqm
@@ -745,28 +738,29 @@ def main():
     
     all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
     all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
-    all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
+    # all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
     
     if accelerator.is_main_process:
         # gather the loss 
         all_batch_indices = all_batch_indices.cpu().tolist()
         all_token_losses = all_token_losses.cpu().tolist()
-        all_token_lengths = all_token_lengths.cpu().tolist()
+        # all_token_lengths = all_token_lengths.cpu().tolist()
         
         ###Note: avoid the index (key) replicate for unbalance data split
         gathered_results = {}
-        gathered_results = dict(zip(all_batch_indices, zip(all_token_losses, all_token_lengths))) 
+        gathered_results = dict(zip(all_batch_indices, all_token_losses)) 
         
         # Sort results by original index
         sorted_results = sorted(gathered_results.items(), key=lambda x: x[0]) 
         
-        sorted_token_losses = [x[1][0] for x in sorted_results]
-        sorted_token_lengths = [x[1][1] for x in sorted_results]
+        sorted_token_losses = [x[1] for x in sorted_results]
+        # sorted_token_lengths = [x[1][1] for x in sorted_results]
         
         
         final_token_losses = []
-        for i, token_len in enumerate(sorted_token_lengths):
-            final_token_losses.append(sorted_token_losses[i][:token_len]) 
+        raw_labels = train_dataset['labels']
+        for i, sample_label in enumerate(raw_labels):
+            final_token_losses.append([0] + sorted_token_losses[i][:len(sample_label)-1])  ### [0] correct the biased weight and set the first token with loss 0
             
         ## save the loss
         loss_path = "results/loss/"
@@ -777,10 +771,6 @@ def main():
         data_type= os.path.basename(args.train_file).split(".json")[0]
         final_data_path = loss_path + f"token_losses_{data_type}_{model_name}.pt"
         
-        ### correct the biased weight and set the first token with loss 0
-        for i in range(len(final_token_losses)):
-            final_token_losses[i] = [0] + final_token_losses[i]
-            
         torch.save(final_token_losses, final_data_path)
         print(f"*** Token-level loss has been stored in {final_data_path} ***")
 

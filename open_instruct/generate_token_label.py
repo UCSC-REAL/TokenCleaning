@@ -116,8 +116,9 @@ def get_half_positive_indices(data):
     top_half_positive_indices = [(item[1], item[2]) for item in top_half_positive]
     return top_half_positive_indices
 
-def  get_curve_positive_indices(losses_pre, losses_cur, alpha = 1.5, beta = 0.5, threshold=5):
-        
+def  get_curve_positive_indices(losses_pre, losses_cur, alpha = 2, beta = 0.07, threshold=5):
+    #alpha, beta = 1.2, 0.1
+    #alpha, beta = 1.5, 0.5    
     curve_positive_indices=[]
     
     for i, (sample_losses_pre, sample_losses_cur) in enumerate(zip(losses_pre, losses_cur)):
@@ -222,19 +223,19 @@ def main(
     losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
     losses_cur = torch.load(loss_path + f"token_losses_{data_type}_{ref_model_name}.pt")
 
-
     # initialize: ignore all tokens first
     selected_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
-    
     ##the calculation different loss of two models
     if reverse_loss:
         loss_diff = [(np.array(loss2) - np.array(loss1)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
     else:
         loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
-        
+
         # ### new loss diff form: w1*(loss1 -loss2) + (1-w1)*loss2 --> w1*loss1 - (2w1-1)*loss2
         # beta =0.6
         # loss_diff = [(beta * np.array(loss1) - (2 *beta -1) * np.array(loss2)).tolist()  for loss1, loss2 in zip(losses_pre, losses_cur)]
+    
+    
     all_token_count = sum(len(label) for label in raw_labels)
     print(f"#### all token counting: {all_token_count}\n")
 
@@ -427,15 +428,15 @@ def main(
         from collections import Counter
         selected_num_tokens_per_sample = sorted(Counter(select_sample_idx).items(), key=lambda x: x[1], reverse=True)
         
-        
-        selected_num_examples = min(int(len(raw_labels) * 0.3), len(selected_num_tokens_per_sample))
+        sample_prop = 0.3
+        selected_num_examples = min(int(len(raw_labels) * sample_prop), len(selected_num_tokens_per_sample))
             
         selected_sample_indices = [key for key, value in selected_num_tokens_per_sample[:selected_num_examples]]
             
             
         select_sample_idx = set(select_sample_idx)
         print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")    
-            
+        print(f"current selected sample size: {len(selected_sample_indices)}")
         ## select samples
         for i in selected_sample_indices:
                 selected_labels[i] = raw_labels[i]

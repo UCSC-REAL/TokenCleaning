@@ -8,7 +8,7 @@ start_time=$(date +%s)
 #### basic config
 max_seq_length=2048
 BATCH_SIZE_PER_GPU=3 #3
-main_process_port=29519
+main_process_port=29520
 cluster_root_path="/data1/jinlong/token_selection_output"
 
 # Define model paths and tags
@@ -17,7 +17,7 @@ base_model="meta-llama/Llama-3.2-3B"
 # reference_model="/mnt/data1/jinlong/token_selection_output/models/meta-llama/Llama-3.2-3B/lora_merged_reference_model"
 reference_model="meta-llama/Llama-3.1-8B-Instruct"
 
-select_token_level=global-curve-positive ## token_ranking_sample_select global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
+select_token_level=token_ranking_sample_select ## token_ranking_sample_select global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
 token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 
 ### training data
@@ -37,11 +37,16 @@ token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_
 
 # train_dataset_name="filtered-cured-10k-active-split-global-curve-positive"
 
-train_dataset_name="filtered-cured-50k-active-split-global-curve-positive-new1"
+# train_dataset_name="filtered-cured-50k-active-split-global-curve-positive-new"
 # train_dataset_name="random_subset_50k-active-split-global-curve-positive-new"
 
 
-# train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
+
+sleep 4h
+
+train_dataset_name="filtered-cured-50k-active-split-token_ranking_sample"
+
+# train_dataset_name="test_100-active-split-token_ranking_sample"
 
 train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
 
@@ -75,6 +80,7 @@ for data_prop in ${data_prop_list[@]}; do
         # else
         #     echo "skip first-round base model loss calculation. load base model loss from existing file. Current support data: filtered-cured-50k and random_subset_50k"
         # fi
+
         echo "start calculating loss for model: ${cur_train_model}"
         BATCH_SIZE_PER_GPU=3
         bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"        # # Run calculate_loss.sh script for reference model
@@ -124,5 +130,4 @@ echo "Elapsed time: $elapsed_time seconds"
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-half-positive.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-curve-positive-new.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_random_subset_50k-active-split-global-curve-positive-new.log &
-
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-curve-positive-new1.log &
+# nohup bash run_active_ref_model_token_ranking_sample.sh > zzz_llama_3_8b_random_subset_50k-active-split-token_ranking.log &

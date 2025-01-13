@@ -1,7 +1,8 @@
 # Set environment variables
-export CUDA_VISIBLE_DEVICES=0
-NUM_GPUS=1
-
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+NUM_GPUS=8
+# export CUDA_VISIBLE_DEVICES=0
+# NUM_GPUS=1
 
 cluster_root_path="/data1/jinlong/token_selection_output"
 
@@ -29,23 +30,23 @@ train_data="selected_data/${train_data_tag}.json"
 cur_train_model=$base_model
 
 #### Run calculate_loss.sh script for base model
-echo "start calculating loss for model: ${cur_train_model}"
-BATCH_SIZE_PER_GPU=1
-bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
-
-# # Run calculate_loss.sh script for reference model
-# echo "start calculating loss for reference model: ${reference_model}"
+# echo "start calculating loss for model: ${cur_train_model}"
 # BATCH_SIZE_PER_GPU=2
-# bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
+# bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
+
+# # # Run calculate_loss.sh script for reference model
+echo "start calculating loss for reference model: ${reference_model}"
+BATCH_SIZE_PER_GPU=2
+bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
 
 ## Run Python script to generate data
-# echo "start generating labels.."
-# python open_instruct/generate_token_label.py \
-#     --base_model_name_or_path $cur_train_model \
-#     --ref_model_name_or_path $reference_model \
-#     --train_data $train_data \
-#     --data_prop $data_prop \
-#     --select_token_level $select_token_level 
+echo "start generating labels.."
+python open_instruct/generate_token_label.py \
+    --base_model_name_or_path $cur_train_model \
+    --ref_model_name_or_path $reference_model \
+    --train_data $train_data \
+    --data_prop $data_prop \
+    --select_token_level $select_token_level 
 
 
 # Define paths for finetuning
