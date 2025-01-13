@@ -103,65 +103,14 @@ do
 
                 ## generate data ###
                 echo "starting generate data..."
-                
-                if [[ "$train_dataset_name" == *"global"* ]]; then
-                    python open_instruct/generate_data.py \
-                        --base_model $base_model \
-                        --model_type $model_type \
-                        --new_model_type $new_model_type \
-                        --data_type $new_data_type \
-                        --data_prop $data_prop \
-                        --global_level_top_k_indices True 
 
-
-                elif [[ "$train_dataset_name" == *"sample"* ]]; then
-                    python open_instruct/generate_data.py \
-                        --base_model $base_model \
-                        --model_type $model_type \
-                        --new_model_type $new_model_type \
-                        --data_type $new_data_type \
-                        --data_prop $data_prop \
-                        --sample_level_top_k_indices True 
-
-                elif [[ "$train_dataset_name" == *"union"* ]]; then
-                    python open_instruct/generate_data.py \
-                        --base_model $base_model \
-                        --model_type $model_type \
-                        --new_model_type $new_model_type \
-                        --data_type $new_data_type \
-                        --data_prop $data_prop \
-                        --union_level_top_k_indices True 
-
-                elif [[ "$train_dataset_name" == *"intersection"* ]]; then
-                    python open_instruct/generate_data.py \
-                        --base_model $base_model \
-                        --model_type $model_type \
-                        --new_model_type $new_model_type \
-                        --data_type $new_data_type \
-                        --data_prop $data_prop \
-                        --intersection_level_top_k_indices True 
-                
-                elif [[ "$train_dataset_name" == *"additional_two_tokens"* ]]; then ## under union
-                    python open_instruct/generate_data.py \
-                        --base_model $base_model \
-                        --model_type $model_type \
-                        --new_model_type $new_model_type \
-                        --data_type $new_data_type \
-                        --data_prop $data_prop \
-                        --additional_two_tokens_level_top_k_indices True 
-
-                elif [[ "$train_dataset_name" == *"combine_loss"* ]]; then ## under union
-                    python open_instruct/generate_data.py \
-                        --base_model $base_model \
-                        --model_type $model_type \
-                        --new_model_type $new_model_type \
-                        --data_type $new_data_type \
-                        --data_prop $data_prop \
-                        --combine_loss_level_top_k_indices True                
-                else
-                    echo "out of global or sample. please check the train dataset name"
-
-                fi
+                python open_instruct/generate_data.py \
+                    --base_model $base_model \
+                    --model_type $model_type \
+                    --new_model_type $new_model_type \
+                    --data_type $new_data_type \
+                    --data_prop $data_prop \
+                    --select_token_level $global
             fi
         done
     done

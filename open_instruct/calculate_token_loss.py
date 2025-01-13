@@ -267,7 +267,7 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add
     tokenized_prompt = tokenizer(example['prompt'], return_tensors='pt', max_length=max_seq_length, truncation=True)
     
     # mask the prompt part for avoiding loss
-    # labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
+    labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
     attention_mask = torch.ones_like(input_ids)
     return {
         'input_ids': input_ids.flatten(),
@@ -326,7 +326,7 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
                 truncation=True
             ).input_ids.shape[1]
             ### message loss
-            # labels[:, message_start_idx:message_end_idx] = -100
+            labels[:, message_start_idx:message_end_idx] = -100
             
             if message_end_idx >= max_seq_length:
                 break
@@ -708,12 +708,13 @@ def main():
 
                     # Save per-token loss (reshape back to match sequence dimensions if needed)
                     per_token_loss = per_token_loss.view(batch["labels"].size(0), -1)  # Shape: [batch_size, seq_len]
-                    padded_token_losses = F.pad(per_token_loss, (0, pad_length - per_token_loss.shape[-1]),value=0)
+                    padded_token_losses = F.pad(per_token_loss, (0, pad_length - per_token_loss.shape[-1]), value=0)
 
                     token_losses.append(padded_token_losses)  # Save loss to analyze later
                     batch_indices.append(indices)
-                    token_lengths.append(torch.tensor([len(label[label != -100])-1 for label in labels], device=accelerator.device, dtype=torch.long))
-                    # import pdb;pdb.set_trace()
+                    # token_lengths.append(torch.tensor([len(label[label != -100]) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
+                    token_lengths.append(torch.tensor([len(label) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
+                    
                     # print(f"label:{shift_labels.shape};; per_token_loss: {per_token_loss.shape};; padded_token_losses; {padded_token_losses.shape} token lengths: {token_lengths[-1]}; ")
                 ## We keep track of the loss at each logged step
                 total_loss += loss.detach().float()
@@ -767,7 +768,6 @@ def main():
         for i, token_len in enumerate(sorted_token_lengths):
             final_token_losses.append(sorted_token_losses[i][:token_len]) 
             
-
         ## save the loss
         loss_path = "results/loss/"
         if not os.path.exists(loss_path):
@@ -777,6 +777,10 @@ def main():
         data_type= os.path.basename(args.train_file).split(".json")[0]
         final_data_path = loss_path + f"token_losses_{data_type}_{model_name}.pt"
         
+        ### correct the biased weight and set the first token with loss 0
+        for i in range(len(final_token_losses)):
+            final_token_losses[i] = [0] + final_token_losses[i]
+            
         torch.save(final_token_losses, final_data_path)
         print(f"*** Token-level loss has been stored in {final_data_path} ***")
 

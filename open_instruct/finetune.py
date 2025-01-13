@@ -369,7 +369,7 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add
     tokenized_prompt = tokenizer(example['prompt'], return_tensors='pt', max_length=max_seq_length, truncation=True)
     
     # mask the prompt part for avoiding loss
-    # labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
+    labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
     attention_mask = torch.ones_like(input_ids)
     return {
         'input_ids': input_ids.flatten(),
@@ -427,8 +427,9 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
                 max_length=max_seq_length, 
                 truncation=True
             ).input_ids.shape[1]
-            ### message loss
-            # labels[:, message_start_idx:message_end_idx] = -100
+            
+            ### mask prompt loss
+            labels[:, message_start_idx:message_end_idx] = -100
             
             if message_end_idx >= max_seq_length:
                 break
@@ -585,9 +586,8 @@ def main():
             revision=tokenizer_revision,
             token=os.getenv("HF_TOKEN", None),
             # cache_dir=cache_dir,
-
-            
         )
+        
     elif args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(
             args.model_name_or_path,
@@ -843,7 +843,7 @@ def main():
         elif args.token_select_pattern == 'all_token_select':
             print("*** using all original tokens (labels) ***")
             selected_labels = orig_labels
-            
+        
         else:
             print(f"Unknown token select pattern: {args.token_select_pattern}!")
             raise NotImplementedError
@@ -853,7 +853,9 @@ def main():
             train_dataset = train_dataset.map(
                 lambda examples, idx: {'labels': selected_labels[idx]},
                 with_indices=True
-            )                 
+            ) 
+
+                          
 
         # if not is_list_equal(selected_labels, train_dataset['labels']):
         #     print("successful use the new selected labels")

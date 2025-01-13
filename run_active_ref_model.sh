@@ -2,6 +2,7 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUS=8
 
+
 start_time=$(date +%s)
 
 #### basic config
@@ -16,7 +17,7 @@ base_model="meta-llama/Llama-3.2-3B"
 # reference_model="/mnt/data1/jinlong/token_selection_output/models/meta-llama/Llama-3.2-3B/lora_merged_reference_model"
 reference_model="meta-llama/Llama-3.1-8B-Instruct"
 
-select_token_level=global-half-positive ## global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
+select_token_level=global-curve-positive ## global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
 token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 
 ### training data
@@ -34,7 +35,10 @@ token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_
 
 # train_dataset_name="filtered-cured-50k-active-split-global-half-positive"
 
-train_dataset_name="filtered-cured-10k-active-split-global-half-positive"
+# train_dataset_name="filtered-cured-10k-active-split-global-curve-positive"
+
+# train_dataset_name="filtered-cured-50k-active-split-global-curve-positive-new"
+train_dataset_name="random_subset_50k-active-split-global-curve-positive-new"
 
 
 # train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4" "${train_dataset_name}_5" "${train_dataset_name}_6" "${train_dataset_name}_7" "${train_dataset_name}_8" "${train_dataset_name}_9")
@@ -64,11 +68,18 @@ for data_prop in ${data_prop_list[@]}; do
         fi
 
         #### Run calculate_loss.sh script for base model
+        # if [[ $idx -ne 0 ]]; then
+        #     echo "start calculating loss for model: ${cur_train_model}"
+        #     BATCH_SIZE_PER_GPU=3
+        #     bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"        # # Run calculate_loss.sh script for reference model
+        # else
+        #     echo "skip first-round base model loss calculation. load base model loss from existing file. Current support data: filtered-cured-50k and random_subset_50k"
+        # fi
         echo "start calculating loss for model: ${cur_train_model}"
         BATCH_SIZE_PER_GPU=3
-        bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
-
-        # # Run calculate_loss.sh script for reference model
+        bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"        # # Run calculate_loss.sh script for reference model
+        
+        # ignore it when we have all reference token loss
         echo "start calculating loss for reference model: ${reference_model}"
         BATCH_SIZE_PER_GPU=2
         bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
@@ -80,7 +91,9 @@ for data_prop in ${data_prop_list[@]}; do
             --ref_model_name_or_path $reference_model \
             --train_data $train_data \
             --data_prop $data_prop \
-            --select_token_level $select_token_level 
+            --select_token_level $select_token_level \
+            --subset_idx $idx \
+            --num_subset ${#train_data_tag_list[@]}
 
         # # Define paths for finetuning
         BATCH_SIZE_PER_GPU=3
@@ -109,4 +122,5 @@ echo "Elapsed time: $elapsed_time seconds"
 
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-positive.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-half-positive.log &
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-10k-active-split-global-half-positive.log &
+# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-curve-positive-new.log &
+# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_random_subset_50k-active-split-global-curve-positive-new.log &
