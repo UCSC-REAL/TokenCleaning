@@ -285,7 +285,7 @@ def main(
         print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
         for i, j in select_tokens_indices:
                 selected_labels[i][j] = raw_labels[i][j] 
-                
+
     #sample-level top-k
     elif select_token_level == 'sample': #sample-level top-k
         print("### start sample level top-k selection...")

@@ -606,7 +606,12 @@ def main():
             desc="Tokenizing and reformatting instruction data",
         )
         lm_datasets.set_format(type="pt")
-        lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any())
+        ### some examples may exceed the max length so that their labels will be [-100...-100] but they cannot be filtered because of the index
+        # invalid_indices = []
+        # for idx, example in enumerate(lm_datasets['train']):
+        #     if (example['labels'] == -100).all():
+        #         invalid_indices.append(idx)
+        # lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any()) 
 
     train_dataset = lm_datasets["train"]
 

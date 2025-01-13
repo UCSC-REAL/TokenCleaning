@@ -1,6 +1,6 @@
 # Set environment variables
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-NUM_GPUS=8
+export CUDA_VISIBLE_DEVICES=2,3,4,5,6,7
+NUM_GPUS=6
 
 
 start_time=$(date +%s)
@@ -9,7 +9,7 @@ start_time=$(date +%s)
 max_seq_length=2048
 BATCH_SIZE_PER_GPU=3 #3
 main_process_port=29527
-cluster_root_path="/data1/jinlong/token_selection_output"
+cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 
 # Define model paths and tags
 base_model="meta-llama/Llama-3.2-3B"
@@ -43,15 +43,18 @@ token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_
 # train_data_tag_list=($train_dataset_name)
 
 
-train_dataset_name_list=("filtered-cured-50k-iter-split-global-curve-positive-new" "random_subset_50k-iter-split-global-curve-positive-new")
+# train_dataset_name_list=("filtered-cured-50k-iter-split-global-curve-positive-new" "random_subset_50k-iter-split-global-curve-positive-new")
 
+train_dataset_name_list=("filtered-cured-50k-iter-split-global-curve-positive-new1" "filtered-cured-50k-iter-split-token-ranking-sample")
 data_prop_list=(0.6) # if means nothing when we use the positive series
 
-sleep 9000s
 
 for train_dataset_name in ${train_dataset_name_list[@]}; do
 
     echo "*** current train dataset name: ${train_dataset_name} ***"
+    if [[ "$train_dataset_name" == *"token-ranking"* ]]; then
+        select_token_level="token_ranking_sample_select"
+    fi
 
     train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
 
@@ -68,7 +71,7 @@ for train_dataset_name in ${train_dataset_name_list[@]}; do
 
                 # # Define paths for finetuning
                 warmup_token_select_pattern="all_token_select"
-                BATCH_SIZE_PER_GPU=3
+                BATCH_SIZE_PER_GPU=5
                 # Run finetune.sh script
                 echo "start warm-up round finetuning..."
                 bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$warmup_token_select_pattern"
@@ -83,12 +86,12 @@ for train_dataset_name in ${train_dataset_name_list[@]}; do
 
                 #### Run calculate_loss.sh script for base model
                 echo "start calculating loss for model: ${cur_train_model}"
-                BATCH_SIZE_PER_GPU=3
+                BATCH_SIZE_PER_GPU=6
                 bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"        # # Run calculate_loss.sh script for reference model
 
-                ## ignore it when we have all reference token loss
+                # ## ignore it when we have all reference token loss
                 echo "start calculating loss for reference model: ${reference_model}"
-                BATCH_SIZE_PER_GPU=2
+                BATCH_SIZE_PER_GPU=4
                 bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
 
                 ## Run Python script to generate data
@@ -106,6 +109,7 @@ for train_dataset_name in ${train_dataset_name_list[@]}; do
 
                 # Run finetune.sh script
                 echo "start finetuning..."
+                BATCH_SIZE_PER_GPU=5
                 bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern"
 
             fi
@@ -134,3 +138,4 @@ echo "Elapsed time: $minutes minutes"
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-half-positive.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-curve-positive-new.log &
 # nohup bash run_iter_pattern.sh > zzz_llama_3_8b_iter-split-global-curve-positive-new.log &
+# bash run_iter_pattern.sh > zzz_llama_3_8b_iter-split-new-zzzz.log 2>&1
