@@ -421,7 +421,8 @@ def main(
                 
     elif select_token_level == "token_ranking_sample_select": # use the top-30% token for each sample for sample-level ranking; take 30% samples with all tokens to finetune
         print("### start token_ranking_sample_select selection...")
-        select_tokens_indices = get_curve_positive_indices(losses_pre, losses_cur)
+        # select_tokens_indices = get_curve_positive_indices(losses_pre, losses_cur)
+        select_tokens_indices = get_positive_indices(loss_diff)
         
         select_sample_idx = [item[0] for item in select_tokens_indices]
         
