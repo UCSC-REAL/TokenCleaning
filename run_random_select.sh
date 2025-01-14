@@ -22,7 +22,7 @@ base_models["meta-llama/Llama-3.2-3B"]="$(($BATCH_SIZE_PER_GPU*$NUM_GPUS)) ${BAT
 # Train_DATASET_LIST=('filtered-cured-50k-all-iter-additional_two_tokens-subset-small-new') #
 
 # Train_DATASET_LIST=('filtered-cured-50k-all-iter-combine-loss-subset-small-new') #
-cluster_root_path="/mnt/data1/jinlong/token_selection_output"
+cluster_root_path="/data1/jinlong/token_selection_output"
 mkdir -p $cluster_root_path
 
 
@@ -31,22 +31,19 @@ Train_DATASET_LIST=('filtered-cured-50k_all_random_select' 'filtered-cured-50k_a
 data_prop=0.3 #0.3
 main_process_port=29516
 
-# token_select_pattern="random_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+token_select_pattern="random_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 # model_type_tag="random_select"
 
 
 for train_dataset_name in "${Train_DATASET_LIST[@]}" 
 do
     echo "##### train_dataset_name: ${train_dataset_name}"
+    train_data="selected_data/${train_dataset_name}.json"
 
     if [[ $train_dataset_name == *"random_select"* ]]; then
         token_select_pattern="random_select" 
-        model_type_tag="random_select"
-
     elif [[ $train_dataset_name == *"loss_ranking_select"* ]]; then
-
         token_select_pattern="loss_ranking_select"
-        model_type_tag="loss_ranking_select"
     else
         echo "Fail to match the training dataset name!"
     fi
@@ -54,19 +51,15 @@ do
     for base_model in "${!base_models[@]}"
     do
         IFS=' ' read -r -a params <<< "${base_models[$base_model]}"
-        TOTAL_BATCH_SIZE=${params[0]}
         BATCH_SIZE_PER_GPU=${params[1]}
         max_seq_length=${params[2]}
 
-        model_name_or_path=$base_model
-        # model_name_or_path=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${model_type}/
-
-        mkdir -p $cluster_root_path/models/
-
         ###finetune ###
         echo "######### Start finetuning...."
-        bash_src/finetune.sh "$model_name_or_path" "$model_type_tag" "$train_dataset_name" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$TOTAL_BATCH_SIZE" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern"
+        cur_train_model=$base_model
         
+        bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern"
+
     done
 done
 
