@@ -61,19 +61,19 @@ class TemporarilySeededRandom:
         np.random.set_state(self.stored_np_state)
 
 
-def get_random_k_indices(data, k, seed=42):
-    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist)]
+def get_random_k_indices(data, data_prop, seed=42):
+    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value != -100]
     with TemporarilySeededRandom(seed):
-        random_k = random.sample(flattened, k)
+        random_k = random.sample(flattened, int(len(flattened)* data_prop))
     random_k_indices = [(item[1], item[2]) for item in random_k]  # item[2]+1 check the bias
     return random_k_indices
 
 
-def get_global_top_k_indices(data, k):
+def get_global_top_k_indices(data, data_prop):
 
-    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist)]
+    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
     
-    top_k = sorted(flattened, key=lambda x: x[0], reverse=True)[:k] ##loss
+    top_k = sorted(flattened, key=lambda x: x[0], reverse=True)[:int(len(flattened)* data_prop)] ##loss
     
     top_k_indices = [(item[1], item[2]+1) for item in top_k]  #item[2]+1 fix the first label biased to match the position
     return top_k_indices
@@ -811,7 +811,7 @@ def main():
             print("*** using the Random Select selection ***")
             selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
 
-            random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * args.data_prop))
+            random_tokens_indices = get_random_k_indices(orig_labels, args.data_prop)
             select_sample_idx = [item[0] for item in random_tokens_indices]
             select_sample_idx = set(select_sample_idx)
             print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(orig_labels)}")        
@@ -825,14 +825,15 @@ def main():
         elif args.token_select_pattern == 'loss_ranking_select': ## loss-based or ppl-based form
             print("*** using the Loss or PPL-based Select form ***")
             ## TODO: need to check the losses file
-            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
+            # loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
+            loss_file = ""
             print(f"Current loss file is: {loss_file}")
             
             selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
 
             losses_base_model = torch.load(loss_file)
             
-            select_tokens_indices = get_global_top_k_indices(losses_base_model, int(all_token_count * args.data_prop))
+            select_tokens_indices = get_global_top_k_indices(losses_base_model, args.data_prop)
 
             select_sample_idx = [item[0] for item in select_tokens_indices]
             select_sample_idx = set(select_sample_idx)
@@ -855,14 +856,6 @@ def main():
                 with_indices=True
             ) 
 
-                          
-
-        # if not is_list_equal(selected_labels, train_dataset['labels']):
-        #     print("successful use the new selected labels")
-        # else:
-        #     print(f"fail to use the new selected labels because of the default token pattern: {args.token_select_pattern}")
-        #     raise NotImplementedError
-    
 
     # DataLoaders creation:
     train_dataloader = DataLoader(
