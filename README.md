@@ -54,7 +54,7 @@ Our selected evaluation and training data are listed below.
 | **Training Data**     | Flan v2, OASST1, WizardLM, Dolly, Stanford Alpaca |
 
 
-## Get Started
+## 🚀🚀 Get Started
 
 Note that our cleaning pipelines consists of **Fixed-Model Cleaning** and **Self-Evolving Cleaning**. One can run the code by 
 
