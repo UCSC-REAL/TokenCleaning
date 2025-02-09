@@ -2,6 +2,7 @@
 
 [Jinlong Pang](https://jlpang863.github.io/), [Na Di](https://www.linkedin.com/in/na-di/), [Zhaowei Zhu](https://users.soe.ucsc.edu/~zhaoweizhu/), [Jiaheng Wei](https://sites.google.com/ucsc.edu/jiahengwei), [Hao Cheng](https://haochenglouis.github.io/), [Chen Qian](https://users.soe.ucsc.edu/~qian/), [Yang Liu](http://www.yliuu.com/).
 
+University of California, Santa Cruz
 
 -----
 
@@ -17,8 +18,16 @@ This repository hosts the code and data of proposed token cleaning pipelines.
 <!-- Recent studies show that in supervised fine-tuning (SFT) of large language models (LLMs), data quality matters more than quantity. 
 While most data cleaning methods concentrate on filtering entire samples, the quality of individual tokens within a sample can vary significantly. After pre-training, even in high-quality samples, patterns or phrases that are not task-related can be redundant or uninformative. Continuing to fine-tune on these patterns may offer limited benefit and even degrade downstream task performance.
 In this paper, we investigate token quality from a noisy-label perspective and propose a generic token cleaning pipeline for SFT tasks. Our method filters out uninformative tokens while preserving those carrying key task-specific information. Specifically, we first evaluate token quality by examining the influence of model updates on each token, then apply a threshold-based separation. The token influence can be measured in a single pass with a fixed reference model or iteratively with self-evolving reference models. The benefits and limitations of both methods are analyzed theoretically by error upper bounds. Extensive experiments show that our framework consistently improves performance across multiple downstream tasks. -->
+-----
+### Brief Introduction
+This project investigates token quality from a noisy-label perspective and propose a generic token cleaning pipeline for SFT tasks. Our method filters out uninformative tokens while preserving those carrying key task-specific information. Specifically, we first evaluate token quality by examining the influence of model updates on each token, then apply a threshold-based separation. The token influence can be measured in a single pass with a fixed reference model or iteratively with self-evolving reference models.
 
 ![The Overview of Token Cleaning Pipelines](token_cleaning_overivew.jpg)
+
+
+- **Fixed-Model Cleaning** This pipeline applies a one-shot cleaning process to the entire dataset.
+
+- **Self-Evolving Cleanning**  This pipeline follows an iterative approach.
 
 <!-- - Reference: [Not All Tokens Are What You Need for Pretraining](https://openreview.net/pdf?id=0NMzBwqaAJ), NeurIPS 2024 best paper runner up. -->
 
