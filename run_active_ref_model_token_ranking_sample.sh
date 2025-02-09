@@ -9,7 +9,7 @@ start_time=$(date +%s)
 max_seq_length=2048
 BATCH_SIZE_PER_GPU=3 #3
 main_process_port=29520
-cluster_root_path="/data1/jinlong/token_selection_output"
+cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 
 # Define model paths and tags
 base_model="meta-llama/Llama-3.2-3B"
@@ -41,8 +41,6 @@ token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_
 # train_dataset_name="random_subset_50k-active-split-global-curve-positive-new"
 
 
-
-sleep 4h
 
 train_dataset_name="filtered-cured-50k-active-split-token_ranking_sample"
 
@@ -82,12 +80,12 @@ for data_prop in ${data_prop_list[@]}; do
         # fi
 
         echo "start calculating loss for model: ${cur_train_model}"
-        BATCH_SIZE_PER_GPU=3
+        BATCH_SIZE_PER_GPU=6
         bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"        # # Run calculate_loss.sh script for reference model
         
         # ignore it when we have all reference token loss
         echo "start calculating loss for reference model: ${reference_model}"
-        BATCH_SIZE_PER_GPU=2
+        BATCH_SIZE_PER_GPU=4
         bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
 
         ## Run Python script to generate data
@@ -102,7 +100,7 @@ for data_prop in ${data_prop_list[@]}; do
             --num_subset ${#train_data_tag_list[@]}
 
         # # Define paths for finetuning
-        BATCH_SIZE_PER_GPU=3
+        BATCH_SIZE_PER_GPU=6
         # Run finetune.sh script
         echo "start finetuning..."
         bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern"
@@ -130,4 +128,4 @@ echo "Elapsed time: $elapsed_time seconds"
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-half-positive.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-curve-positive-new.log &
 # nohup bash run_active_ref_model.sh > zzz_llama_3_8b_random_subset_50k-active-split-global-curve-positive-new.log &
-# nohup bash run_active_ref_model_token_ranking_sample.sh > zzz_llama_3_8b_random_subset_50k-active-split-token_ranking.log &
+# bash run_active_ref_model_token_ranking_sample.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-token_ranking_sample.log 2>&1

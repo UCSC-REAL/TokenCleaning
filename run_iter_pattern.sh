@@ -1,6 +1,6 @@
 # Set environment variables
-export CUDA_VISIBLE_DEVICES=2,3,4,5,6,7
-NUM_GPUS=6
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+NUM_GPUS=8
 
 
 start_time=$(date +%s)
@@ -13,48 +13,60 @@ cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 
 # Define model paths and tags
 base_model="meta-llama/Llama-3.2-3B"
-
+# base_model="meta-llama/Llama-3.1-8B"
+# base_model="mistralai/Mistral-7B-v0.3"
 # reference_model="/mnt/data1/jinlong/token_selection_output/models/meta-llama/Llama-3.2-3B/lora_merged_reference_model"
-reference_model="meta-llama/Llama-3.1-8B-Instruct"
+# reference_model="meta-llama/Llama-3.1-8B-Instruct"
 
-select_token_level=global-curve-positive ## global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
-token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+with_prompt_token=False
+select_token_level=global ## global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
+token_select_pattern=semi_select #"semi_combine_global_half_positive_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 
 ### training data
-# train_dataset_name="filtered-cured-50k-active-split"
-# train_dataset_name="random_subset_50k-active-split"
-# train_dataset_name="alpaca_52k-active-split"
-# train_dataset_name="alpaca_52k-active-split-5k"
-# train_dataset_name="full-300k-active-split-sample"
-# train_dataset_name="filtered-cured-50k-active-split-global"
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global-curve-positive-new" "random_subset_50k-iter-split-global-curve-positive-new")
 
-# train_dataset_name="filtered-cured-10k-active-split-global"
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global-curve-positive-new1" "filtered-cured-50k-iter-split-token-ranking-sample")
 
-# train_dataset_name="filtered-cured-50k-active-split-global-positive"
-# train_dataset_name="filtered-cured-50k-active-split-sample-positive"
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global-positive-new2" "filtered-cured-50k-iter-split-token-ranking-sample-new1")
 
-# train_dataset_name="filtered-cured-50k-active-split-global-half-positive"
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop")
 
-# train_dataset_name="filtered-cured-10k-active-split-global-curve-positive"
+# combine global half positive fixed base loss
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_combine_global_half_positive_fixed_based_loss")
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_combine_active-split-global-curve-positive-fixed-base-loss-using-warmup-label" "filtered-cured-50k-iter-split-global_data_prop_combine_active-split-global-curve-positive-fixed-base-loss-label")
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_combine_active-split-global-curve-positive-fixed-base-loss-using-warmup-label")
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3")
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-sample_data_prop_0.3" "filtered-cured-50k-iter-split-sample_data_prop_0.6")
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b")
 
-# train_dataset_name="test_100-iter-split-global-curve-positive-new"
-#### reference baseline: RHO one-shot
-# train_dataset_name="random_subset_50k_active_all"
-# train_data_tag_list=($train_dataset_name)
+Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered" "filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered-with-prompt" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-with-prompt")
 
 
-# train_dataset_name_list=("filtered-cured-50k-iter-split-global-curve-positive-new" "random_subset_50k-iter-split-global-curve-positive-new")
-
-train_dataset_name_list=("filtered-cured-50k-iter-split-global-curve-positive-new1" "filtered-cured-50k-iter-split-token-ranking-sample")
-data_prop_list=(0.6) # if means nothing when we use the positive series
+# data_prop_list=(0.3) # if means nothing when we use the positive series
 
 
-for train_dataset_name in ${train_dataset_name_list[@]}; do
+for train_dataset_name in ${Train_DATASET_LIST[@]}; do
 
     echo "*** current train dataset name: ${train_dataset_name} ***"
-    if [[ "$train_dataset_name" == *"token-ranking"* ]]; then
-        select_token_level="token_ranking_sample_select"
+    echo "*** subset json file generation ***"
+
+    python open_instruct/generate_subset.py --generate_train_data_name $train_dataset_name
+
+    if [[ "$train_dataset_name" == *"0.3"* ]]; then
+        data_prop_list=(0.3)
+    elif [[ "$train_dataset_name" == *"0.6"* ]]; then
+        data_prop_list=(0.6)
+    else
+        echo "unknown data prop list"
     fi
+
+    if [[ "$train_dataset_name" == *"prompt"* ]]; then
+        with_prompt_token=True
+    else
+        with_prompt_token=False
+    fi
+
+    echo "*** data_prop_list: ${data_prop_list} ***"
 
     train_data_tag_list=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
 
@@ -71,10 +83,10 @@ for train_dataset_name in ${train_dataset_name_list[@]}; do
 
                 # # Define paths for finetuning
                 warmup_token_select_pattern="all_token_select"
-                BATCH_SIZE_PER_GPU=5
+                BATCH_SIZE_PER_GPU=6
                 # Run finetune.sh script
                 echo "start warm-up round finetuning..."
-                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$warmup_token_select_pattern"
+                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$warmup_token_select_pattern" "$with_prompt_token"
 
             else
                 cur_train_model=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag_list[$((idx-1))]}
@@ -87,12 +99,12 @@ for train_dataset_name in ${train_dataset_name_list[@]}; do
                 #### Run calculate_loss.sh script for base model
                 echo "start calculating loss for model: ${cur_train_model}"
                 BATCH_SIZE_PER_GPU=6
-                bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"        # # Run calculate_loss.sh script for reference model
+                bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port" "$with_prompt_token"      # # Run calculate_loss.sh script for reference model
 
                 # ## ignore it when we have all reference token loss
                 echo "start calculating loss for reference model: ${reference_model}"
-                BATCH_SIZE_PER_GPU=4
-                bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port"
+                BATCH_SIZE_PER_GPU=6
+                bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port" "$with_prompt_token"
 
                 ## Run Python script to generate data
                 ### use reverse loss take the previous model as the reference model
@@ -105,12 +117,13 @@ for train_dataset_name in ${train_dataset_name_list[@]}; do
                     --select_token_level $select_token_level \
                     --subset_idx $idx \
                     --num_subset ${#train_data_tag_list[@]} \
-                    --reverse_loss True
+                    --reverse_loss True \
+                    --with_prompt_token $with_prompt_token
 
                 # Run finetune.sh script
                 echo "start finetuning..."
-                BATCH_SIZE_PER_GPU=5
-                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern"
+                BATCH_SIZE_PER_GPU=6
+                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern" "$with_prompt_token"
 
             fi
         done 
@@ -126,16 +139,9 @@ minutes=$((elapsed_time / 60))
 echo "Elapsed time: $minutes minutes"
 
 
-# bash run_active_ref_model.sh > zzz_llama_3_8b_active_1k_samples.log 2>&1
-# bash run_active_ref_model.sh > zzz_llama_3_8b_active_10k_samples.log 2>&1
-
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_active_10k_samples.log &
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_random_subset_active_10k_samples.log &
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_alpaca_52k_active_split.log &
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_alpaca_52k_active_split-5k.log &
-
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-positive.log &
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-half-positive.log &
-# nohup bash run_active_ref_model.sh > zzz_llama_3_8b_filtered-cured-50k-active-split-global-curve-positive-new.log &
-# nohup bash run_iter_pattern.sh > zzz_llama_3_8b_iter-split-global-curve-positive-new.log &
-# bash run_iter_pattern.sh > zzz_llama_3_8b_iter-split-new-zzzz.log 2>&1
+# bash run_iter_pattern.sh > zzz_filtered-cured-50k-iter-split-global_data_prop.log 2>&1
+# bash run_iter_pattern.sh > zzz_filtered-cured-50k-iter-split-global_data_prop_combine_global_half_positive_fixed_based_loss.log 2>&1
+# bash run_iter_pattern.sh > zzz_filtered-cured-50k-iter-split-global_data_prop_0.3.log 2>&1
+# bash run_iter_pattern.sh > zzz_filtered-cured-50k-iter-split-sample_data_prop.log 2>&1
+# bash run_iter_pattern.sh > zzz_filtered-cured-50k-iter-split-global_data_prop-shuffle.log 2>&1
+# bash run_iter_pattern.sh > zzz_llama3b-combine-case.log 2>&1

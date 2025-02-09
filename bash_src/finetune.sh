@@ -9,6 +9,7 @@ cluster_root_path=$7
 data_prop=$8
 main_process_port=$9
 token_select_pattern=${10}
+with_prompt_token=${11:-False}
 
 train_data_tag=$(basename "$train_data" .json)
 
@@ -20,6 +21,7 @@ echo "*** Training ${base_model} using $NUM_GPUS GPUs, $BATCH_SIZE_PER_GPU batch
 echo "*** Training data path: ${train_data} ***"
 echo "*** Main_process_port: ${main_process_port} ***"
 echo "*** Selected Data Proportion: ${data_prop} ***"
+echo "*** With Prompt Token: ${with_prompt_token} ***"
 
 
 accelerate launch \
@@ -54,8 +56,9 @@ accelerate launch \
     --logging_steps 1 \
     --train_data_tag $train_data_tag \
     --token_select_pattern $token_select_pattern \
-    --data_prop $data_prop
-    # --reduce_loss sum \
+    --data_prop $data_prop \
+    --with_prompt_token $with_prompt_token
+    # --reduce_loss sum
 
 python open_instruct/merge_lora.py \
     --base_model_name_or_path $model_name_or_path \

@@ -38,6 +38,15 @@ from transformers import (
 )
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    if value.lower() in ('true', '1', 'yes'):
+        return True
+    elif value.lower() in ('false', '0', 'no'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Boolean value expected, got {value}.")
 
 class TemporarilySeededRandom:
     def __init__(self, seed):
@@ -304,7 +313,7 @@ def parse_args():
     parser.add_argument(
         '--reduce_loss',
         default='mean',
-        choices=['mean', 'sum'],
+        choices=['mean', 'sum', 'token_level_weighted'],
         help='How to reduce loss over tokens. Default is mean, but using sum can improve chat model performance.',
     )
     parser.add_argument(
@@ -331,11 +340,14 @@ def parse_args():
     parser.add_argument(
         '--token_select_pattern',
         default='all_token_select',
-        choices=['random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"],  
+        # choices=['random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select", "semi_combine_global_half_positive_select"],  
         help='Pattern for token selection. You can select one or more of: "random_semi_shift", "semi_select", "o". Default is "random"',
     )
     parser.add_argument(
         "--data_prop", type=float, default=0.3, help="Token proportion selected"
+    )
+    parser.add_argument(
+        "--with_prompt_token", type=str2bool, default=False, help="whether to use prompt tokens in the selection process"
     )
     
     args = parser.parse_args()
@@ -349,7 +361,7 @@ def parse_args():
     return args
 
 
-def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add_bos=False):
+def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
     '''
     Here we assume each example has 'prompt' and 'completion' fields.
     We concatenate prompt and completion and tokenize them together because otherwise prompt will be padded/trancated 
@@ -369,7 +381,9 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add
     tokenized_prompt = tokenizer(example['prompt'], return_tensors='pt', max_length=max_seq_length, truncation=True)
     
     # mask the prompt part for avoiding loss
-    labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
+    if not with_prompt_token:
+        labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
+        
     attention_mask = torch.ones_like(input_ids)
     return {
         'input_ids': input_ids.flatten(),
@@ -378,7 +392,7 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add
     }
 
 
-def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=False):
+def encode_with_messages_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
     '''
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -429,7 +443,8 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
             ).input_ids.shape[1]
             
             ### mask prompt loss
-            labels[:, message_start_idx:message_end_idx] = -100
+            if not with_prompt_token:
+                labels[:, message_start_idx:message_end_idx] = -100
             
             if message_end_idx >= max_seq_length:
                 break
@@ -441,18 +456,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
         'attention_mask': attention_mask.flatten(),
     }
 
-def is_list_equal(list1, list2):
-    if len(list1) != len(list2):
-        return False
-    
-    for a, b in zip(list1, list2):
-        if isinstance(a, list) and isinstance(b, list):
-            if not is_list_equal(a, b):  
-                return False
-        elif a != b:
-            return False
-    
-    return True
 
 def save_with_accelerate(accelerator, model, tokenizer, output_dir, args):
     # set the generation config to an empty setting to be safe.
@@ -719,6 +722,7 @@ def main():
             encode_with_prompt_completion_format,
             tokenizer=tokenizer,
             max_seq_length=args.max_seq_length,
+            with_prompt_token=args.with_prompt_token,
             add_bos=args.add_bos,
         )
     elif "messages" in raw_datasets["train"].column_names:
@@ -726,6 +730,7 @@ def main():
             encode_with_messages_format,
             tokenizer=tokenizer,
             max_seq_length=args.max_seq_length,
+            with_prompt_token=args.with_prompt_token,
             add_bos=args.add_bos,
         )
     else:
@@ -750,7 +755,10 @@ def main():
         )
         lm_datasets.set_format(type="pt")
         # lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any())
-
+        
+        if args.with_prompt_token:
+            print("*** current also use prompt token ***")
+            
         train_dataset = lm_datasets["train"]
         
 
@@ -804,8 +812,40 @@ def main():
                 
             print("changing the data labels")
             selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")           
+            
+        ### semi_combine_global_half_positive_select form ##
+        elif args.token_select_pattern == 'semi_combine_global_half_positive_select': 
+            print("*** using the semi_combine_global_half_positive_select Select form ***")
+            print("changing the data labels")
 
+            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
+            cur_selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")     
+            
+            target_idx = int(args.train_data_tag.split("_")[-1]) ## subset index
+
+            additional_label_tag="filtered-cured-50k-active-split-global-half-positive-fixed-base-loss"
+            additional_selected_labels = torch.load(f"results/label/token_labels_{additional_label_tag}_{target_idx}.pt")  
+             
+            for i, (cur_labels_per_sample, additional_labels_per_sample) in enumerate(zip(cur_selected_labels, additional_selected_labels)):
+                for j, (cur_label, additional_label) in enumerate(zip(cur_labels_per_sample, additional_labels_per_sample)):
+                    if cur_label != -100 or additional_label != -100:
+                        selected_labels[i][j] = cur_label if cur_label != -100 else additional_label
                 
+        ### semi_combine_global_half_positive_select form ##
+        elif args.token_select_pattern == 'semi_combine_active_split_global_half_positive_select': 
+            print("*** using the semi_combine_active_split_global_half_positive_select Select form ***")
+
+            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
+            cur_selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")     
+                        
+            active_split_selected_labels = torch.load(f"results/active_split_temp_label/token_labels_{args.train_data_tag}.pt")  
+            
+            for i, (cur_labels_per_sample, additional_labels_per_sample) in enumerate(zip(cur_selected_labels, active_split_selected_labels)):
+                for j, (cur_label, additional_label) in enumerate(zip(cur_labels_per_sample, additional_labels_per_sample)):
+                    if cur_label != -100 or additional_label != -100:
+                        selected_labels[i][j] = cur_label if cur_label != -100 else additional_label
+                
+            
         ## random selection ##
         elif args.token_select_pattern == 'random_select': 
             print("*** using the Random Select selection ***")
@@ -825,8 +865,7 @@ def main():
         elif args.token_select_pattern == 'loss_ranking_select': ## loss-based or ppl-based form
             print("*** using the Loss or PPL-based Select form ***")
             ## TODO: need to check the losses file
-            # loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
-            loss_file = ""
+            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
             print(f"Current loss file is: {loss_file}")
             
             selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
@@ -855,12 +894,19 @@ def main():
                 lambda examples, idx: {'labels': selected_labels[idx]},
                 with_indices=True
             ) 
-
-
+    ################################################
+    ### filter out those examples with all -100 labels
+    # orig_data_size = len(train_dataset)
+    # train_dataset = train_dataset.filter(lambda example: (example['labels'] != -100).any())
+    # print(f"Filter out sample size: {orig_data_size - len(train_dataset)}")
+    ################################################
+    
+    
     # DataLoaders creation:
     train_dataloader = DataLoader(
         train_dataset, 
-        shuffle=True, 
+        # shuffle=True, 
+        shuffle=False, 
         collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding="longest"),
         batch_size=args.per_device_train_batch_size
     )
@@ -1021,6 +1067,40 @@ def main():
 
                 if args.reduce_loss == 'mean':
                     loss = outputs.loss
+                    
+                elif args.reduce_loss == 'token_level_weighted':
+                    logits = outputs.logits
+
+                    labels = batch["labels"]
+                    # Shift so that tokens < n predict n
+                    shift_logits = logits[..., :-1, :].contiguous()
+                    shift_labels = labels[..., 1:].contiguous()
+                    
+                    batch_size, seq_len_minus_1 = shift_labels.shape
+
+                    # Flatten the tokens
+                    loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+
+                    shift_logits = shift_logits.view(-1, embedding_size)
+                    shift_labels = shift_labels.view(-1)
+                    
+                    # Enable model parallelism
+                    shift_labels = shift_labels.to(shift_logits.device)
+                    loss_1d = loss_fct(shift_logits, shift_labels)
+                    loss_2d = loss_1d.view(batch_size, seq_len_minus_1)
+                    
+                    ## ignore the -100 token
+                    valid_mask = (shift_labels.view(batch_size, seq_len_minus_1) != -100)
+                    
+                    ## TODO define token-level weights
+                    token_level_weights = (shift_labels.view(batch_size, seq_len_minus_1) != -100).float()
+                    
+                    weighted_loss_2d = loss_2d * token_level_weights
+                    weighted_loss_2d = weighted_loss_2d * valid_mask.float()
+                    
+                    loss_sum = weighted_loss_2d.sum()
+                    num_valid_tokens = valid_mask.sum()
+                    loss = loss_sum / num_valid_tokens               
                 else:
                     # reduce loss is sum
                     # this ensures that we weight all tokens in the dataset equally,
@@ -1037,26 +1117,14 @@ def main():
                     shift_logits = logits[..., :-1, :].contiguous()
                     shift_labels = labels[..., 1:].contiguous()
                     # Flatten the tokens
-                    # loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
-                    loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-
+                    loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
                     shift_logits = shift_logits.view(-1, embedding_size)
                     shift_labels = shift_labels.view(-1)
                     
                     # Enable model parallelism
                     shift_labels = shift_labels.to(shift_logits.device)
-                    per_token_loss = loss_fct(shift_logits, shift_labels)
-                    loss = per_token_loss.sum()
+                    loss = loss_fct(shift_logits, shift_labels)
                     
-                    # Save per-token loss (reshape back to match sequence dimensions if needed)
-                    # per_token_loss = per_token_loss.view(batch["labels"].size(0), -1)  # Shape: [batch_size, seq_len]
-                    # padded_token_losses = F.pad(per_token_loss, (0, pad_length - per_token_loss.shape[-1]),value=0)
-                    # # padded_token_losses = accelerator.pad_across_processes(per_token_loss, dim=-1, pad_index=-100)
-
-                    # token_losses.append(padded_token_losses)  # Save loss to analyze later
-                    # batch_indices.append(indices)
-                    # token_lengths.append(torch.tensor([len(label[label != -100]) -1 for label in labels], device=accelerator.device, dtype=torch.long))
-
                 # We keep track of the loss at each logged step
                 total_loss += loss.detach().float()
                 accelerator.backward(loss)

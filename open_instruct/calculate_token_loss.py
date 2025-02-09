@@ -44,6 +44,15 @@ from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_tr
 
 # cache_dir=None
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    if value.lower() in ('true', '1', 'yes'):
+        return True
+    elif value.lower() in ('false', '0', 'no'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError(f"Boolean value expected, got {value}.")
 
 logger = get_logger(__name__)
 
@@ -214,7 +223,7 @@ def parse_args():
         help='Use 8bit optimizer from bitsandbytes. Not compatible with deepspeed (use deepspeed config instead).',
     )
     parser.add_argument(
-        '--add_bo',
+        '--add_bos',
         action='store_true',
         help='Forcibly add bos token to the beginning of the input sequence. Use only when tokenizer does not add bos token by default (e.g., olmo).',
     )
@@ -235,7 +244,9 @@ def parse_args():
         choices=['mean', 'sum'],
         help='How to reduce loss over tokens. Default is mean, but using sum can improve chat model performance.',
     )
-
+    parser.add_argument(
+        "--with_prompt_token", type=str2bool, default=False, help="whether to use prompt tokens in the selection process"
+    )
     args = parser.parse_args()
     # Sanity checks
     if args.dataset_name is None and args.train_file is None:
@@ -247,7 +258,7 @@ def parse_args():
     return args
 
 
-def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add_bos=False):
+def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
     '''
     Here we assume each example has 'prompt' and 'completion' fields.
     We concatenate prompt and completion and tokenize them together because otherwise prompt will be padded/trancated 
@@ -267,7 +278,8 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add
     tokenized_prompt = tokenizer(example['prompt'], return_tensors='pt', max_length=max_seq_length, truncation=True)
     
     # mask the prompt part for avoiding loss
-    labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
+    if not with_prompt_token:
+        labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
     attention_mask = torch.ones_like(input_ids)
     return {
         'input_ids': input_ids.flatten(),
@@ -276,7 +288,7 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, add
     }
 
 
-def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=False):
+def encode_with_messages_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
     '''
     Here we assume each example has a 'messages' field Each message is a dict with 'role' and 'content' fields.
     We concatenate all messages with the roles as delimiters and tokenize them together.
@@ -325,8 +337,10 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, add_bos=Fals
                 max_length=max_seq_length, 
                 truncation=True
             ).input_ids.shape[1]
-            ### message loss
-            labels[:, message_start_idx:message_end_idx] = -100
+            
+            ### mask prompt loss
+            if not with_prompt_token:
+                labels[:, message_start_idx:message_end_idx] = -100
             
             if message_end_idx >= max_seq_length:
                 break
@@ -578,12 +592,16 @@ def main():
             encode_with_prompt_completion_format,
             tokenizer=tokenizer,
             max_seq_length=args.max_seq_length,
+            with_prompt_token=args.with_prompt_token,
+            add_bos=args.add_bos,
         )
     elif "messages" in raw_datasets["train"].column_names:
         encode_function = partial(
             encode_with_messages_format,
             tokenizer=tokenizer,
             max_seq_length=args.max_seq_length,
+            with_prompt_token=args.with_prompt_token,
+            add_bos=args.add_bos,
         )
     else:
         raise ValueError("You need to have either 'prompt'&'completion' or 'messages' in your column names.")
@@ -612,7 +630,11 @@ def main():
         #     if (example['labels'] == -100).all():
         #         invalid_indices.append(idx)
         # lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any()) 
-
+        if args.with_prompt_token:
+            print("*** current also use prompt token ***")
+        else:
+            print("*** current only use response token ***")
+            
     train_dataset = lm_datasets["train"]
 
     # DataLoaders creation:
@@ -621,7 +643,7 @@ def main():
         shuffle=False, 
         collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding="longest"),
         batch_size=args.per_device_train_batch_size
-    )
+    ) 
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False

@@ -119,3 +119,4 @@ selected_data/*
 output/*
 *.json
 results
+valid_dataset/*
