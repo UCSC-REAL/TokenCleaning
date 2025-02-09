@@ -5,6 +5,7 @@ Recent studies show that in supervised fine-tuning (SFT) of large language model
 While most data cleaning methods concentrate on filtering entire samples, the quality of individual tokens within a sample can vary significantly. After pre-training, even in high-quality samples, patterns or phrases that are not task-related can be redundant or uninformative. Continuing to fine-tune on these patterns may offer limited benefit and even degrade downstream task performance.
 In this paper, we investigate token quality from a noisy-label perspective and propose a generic token cleaning pipeline for SFT tasks. Our method filters out uninformative tokens while preserving those carrying key task-specific information. Specifically, we first evaluate token quality by examining the influence of model updates on each token, then apply a threshold-based separation. The token influence can be measured in a single pass with a fixed reference model or iteratively with self-evolving reference models. The benefits and limitations of both methods are analyzed theoretically by error upper bounds. Extensive experiments show that our framework consistently improves performance across multiple downstream tasks.
 
+![The Overview of Token Cleaning Pipelines](token_cleaning_overivew.jpg)
 
 <!-- - Reference: [Not All Tokens Are What You Need for Pretraining](https://openreview.net/pdf?id=0NMzBwqaAJ), NeurIPS 2024 best paper runner up. -->
 
@@ -12,7 +13,6 @@ In this paper, we investigate token quality from a noisy-label perspective and p
 - [x] [2024.02.01] 🚀🚀 Release the code of Token-Cleaning.
 
 
-![The Overview of Token Cleaning Pipelines](token_cleaning_overivew.jpg)
 
 ## Environment Preparation
 To run training, evaluation, or inference for finetuned models, you need to install the required packages by running the following command (after installing pytorch):
