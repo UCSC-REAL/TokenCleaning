@@ -9,7 +9,7 @@ In this paper, we investigate token quality from a noisy-label perspective and p
 
 <!-- - Reference: [Not All Tokens Are What You Need for Pretraining](https://openreview.net/pdf?id=0NMzBwqaAJ), NeurIPS 2024 best paper runner up. -->
 
-## 🎉 News 
+## 🎉🎉 News 
 - [x] [2024.02.01] 🚀🚀 Release the code of Token-Cleaning.
 
 
