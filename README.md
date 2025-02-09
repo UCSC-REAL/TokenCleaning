@@ -1,5 +1,15 @@
 # Token Cleaning: Fine-Grained Data Selection for LLM Supervised Fine-Tuning
 
+
+-----
+
+<a href='https://github.com/JlPang863/LLM_token_selection'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
+<!-- <a href='#'><img src='https://img.shields.io/badge/Demo-Page-purple'></a>  -->
+<a href='https://arxiv.org/abs/2502.01968'><img src='https://img.shields.io/badge/Paper-PDF-orange'></a> 
+<!-- ![License](https://img.shields.io/badge/License-BSD-blue.svg) -->
+<!-- [![YouTube](https://badges.aleen42.com/src/youtube.svg)](https://www.youtube.com/watch?v=aqw2SCWeWD0) -->
+
+
 ### Abstract
 Recent studies show that in supervised fine-tuning (SFT) of large language models (LLMs), data quality matters more than quantity. 
 While most data cleaning methods concentrate on filtering entire samples, the quality of individual tokens within a sample can vary significantly. After pre-training, even in high-quality samples, patterns or phrases that are not task-related can be redundant or uninformative. Continuing to fine-tune on these patterns may offer limited benefit and even degrade downstream task performance.
