@@ -1,5 +1,8 @@
 # Token Cleaning: Fine-Grained Data Selection for LLM Supervised Fine-Tuning
 
+[Jinlong Pang](https://jlpang863.github.io/), [Na Di](https://www.linkedin.com/in/na-di/), [Zhaowei Zhu](https://users.soe.ucsc.edu/~zhaoweizhu/), [Jiaheng Wei](https://sites.google.com/ucsc.edu/jiahengwei), [Hao Cheng](https://haochenglouis.github.io/), [Chen Qian](https://users.soe.ucsc.edu/~qian/), [Yang Liu](http://www.yliuu.com/).
+
+
 -----
 
 <a href='https://github.com/JlPang863/LLM_token_selection'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
@@ -8,6 +11,7 @@
 <!-- ![License](https://img.shields.io/badge/License-BSD-blue.svg) -->
 <!-- [![YouTube](https://badges.aleen42.com/src/youtube.svg)](https://www.youtube.com/watch?v=aqw2SCWeWD0) -->
 
+This repository hosts the code and data of proposed token cleaning pipelines.
 
 <!-- ### Abstract -->
 <!-- Recent studies show that in supervised fine-tuning (SFT) of large language models (LLMs), data quality matters more than quantity. 
