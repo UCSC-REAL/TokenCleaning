@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-10k-warmup-mistral-41,43.14,39.54,27.44,62.55,61.39,51.85,85.73,53.1

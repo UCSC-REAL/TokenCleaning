@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-rho-baseline-global-llama3b-41,47.85,51.44,26.05,57.1,56.5,46.34,77.12,51.8

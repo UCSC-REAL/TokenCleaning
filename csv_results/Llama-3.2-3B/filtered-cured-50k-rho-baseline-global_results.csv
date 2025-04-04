@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-rho-baseline-global,48.95,51.62,25.89,57.09,56.43,45.39,77.58,51.8

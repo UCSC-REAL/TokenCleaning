@@ -22,7 +22,7 @@ In this paper, we investigate token quality from a noisy-label perspective and p
 ### Brief Introduction
 This project investigates token quality from a noisy-label perspective and propose a generic token cleaning pipeline for SFT tasks. Our method filters out uninformative tokens while preserving those carrying key task-specific information. Specifically, we first evaluate token quality by examining the influence of model updates on each token, then apply a threshold-based separation. The token influence can be measured in a single pass with a fixed reference model or iteratively with self-evolving reference models.
 
-![The Overview of Token Cleaning Pipelines](token_cleaning_overivew.jpg)
+![The Overview of Token Cleaning Pipelines](figures/token_cleaning_overivew.jpg)
 
 
 - **Fixed-Model Cleaning** This pipeline applies a one-shot cleaning process to the entire dataset.
@@ -60,10 +60,10 @@ Note that our cleaning pipelines consists of **Fixed-Model Cleaning** and **Self
 
 ```bash
 # Fixed-model cleaning
-bash run_rho_baseline_global.sh
+bash fixed_model_cleaning.sh
 
 # Self-evolving cleaning
-bash run_iter_pattern_new.sh
+bash self_evolving_cleaning.sh
 ```
 
 ## Model Evaluation
@@ -71,7 +71,7 @@ The task performances are evaluated on the [lm-eval-hareness](https://github.com
 For convenience, one can do evaluation by 
 
 ```bash 
-bash run_eval_token_selection.sh
+bash run_eval.sh
 ```
 
 

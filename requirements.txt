@@ -17,6 +17,7 @@ tiktoken
 wandb
 gradio>=3.50.2
 fire
+lm-eval
 
 
 

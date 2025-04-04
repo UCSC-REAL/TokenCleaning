@@ -19,7 +19,6 @@ from tqdm.auto import tqdm
 import deepspeed
 import torch.nn.functional as F
 import numpy as np
-import re
 
 import transformers
 from transformers import (
@@ -38,6 +37,13 @@ from transformers import (
 )
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 
+
+
+# cache_dir = '/tmp/huggingface/hub/'
+# os.makedirs(cache_dir, exist_ok=True)
+
+# cache_dir=None
+
 def str2bool(value):
     if isinstance(value, bool):
         return value
@@ -47,47 +53,6 @@ def str2bool(value):
         return False
     else:
         raise argparse.ArgumentTypeError(f"Boolean value expected, got {value}.")
-
-class TemporarilySeededRandom:
-    def __init__(self, seed):
-        """Temporarily set the random seed, and then restore it when exiting the context."""
-        self.seed = seed
-        self.stored_state = None
-        self.stored_np_state = None
-
-    def __enter__(self):
-        # Store the current random state
-        self.stored_state = random.getstate()
-        self.stored_np_state = np.random.get_state()
-
-        # Set the random seed
-        random.seed(self.seed)
-        np.random.seed(self.seed)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # Restore the random state
-        random.setstate(self.stored_state)
-        np.random.set_state(self.stored_np_state)
-
-
-def get_random_k_indices(data, data_prop, seed=42):
-    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value != -100]
-    with TemporarilySeededRandom(seed):
-        random_k = random.sample(flattened, int(len(flattened)* data_prop))
-    random_k_indices = [(item[1], item[2]) for item in random_k]  # item[2]+1 check the bias
-    return random_k_indices
-
-
-def get_global_top_k_indices(data, data_prop):
-
-    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
-    
-    top_k = sorted(flattened, key=lambda x: x[0], reverse=True)[:int(len(flattened)* data_prop)] ##loss
-    
-    top_k_indices = [(item[1], item[2]+1) for item in top_k]  #item[2]+1 fix the first label biased to match the position
-    return top_k_indices
-
-
 
 logger = get_logger(__name__)
 
@@ -187,12 +152,7 @@ def parse_args():
         default=8,
         help="Batch size (per device) for the training dataloader.",
     )
-    parser.add_argument(
-        "--learning_rate",
-        type=float,
-        default=5e-5,
-        help="Initial learning rate (after the potential warmup period) to use.",
-    )
+
     parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay to use.")
     parser.add_argument("--num_train_epochs", type=int, default=3, help="Total number of training epochs to perform.")
     parser.add_argument(
@@ -207,13 +167,7 @@ def parse_args():
         default=1,
         help="Number of updates steps to accumulate before performing a backward/update pass.",
     )
-    parser.add_argument(
-        "--lr_scheduler_type",
-        type=SchedulerType,
-        default="linear",
-        help="The scheduler type to use.",
-        choices=["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"],
-    )
+
     parser.add_argument(
         "--warmup_ratio", type=float, default=0, help="Ratio of total training steps used for warmup."
     )
@@ -229,38 +183,12 @@ def parse_args():
         "--overwrite_cache", action="store_true", help="Overwrite the cached training and evaluation sets"
     )
     parser.add_argument(
-        "--checkpointing_steps",
-        type=str,
-        default=None,
-        help="Whether the various states should be saved at the end of every n steps, or 'epoch' for each epoch.",
-    )
-    parser.add_argument(
         "--logging_steps",
         type=int,
-        default=None,
+        default=1,
         help="Log the training loss and learning rate every logging_steps steps.",
     )
-    parser.add_argument(
-        "--resume_from_checkpoint",
-        type=str,
-        default=None,
-        help="If the training should continue from a checkpoint folder.",
-    )
-    parser.add_argument(
-        "--with_tracking",
-        action="store_true",
-        help="Whether to enable experiment trackers for logging.",
-    )
-    parser.add_argument(
-        "--report_to",
-        type=str,
-        default="all",
-        help=(
-            'The integration to report the results and logs to. Supported platforms are `"tensorboard"`,'
-            ' `"wandb"`, `"comet_ml"` and `"clearml"`. Use `"all"` (default) to report to all integrations.'
-            "Only applicable when `--with_tracking` is passed."
-        ),
-    )
+
     parser.add_argument(
         "--low_cpu_mem_usage",
         action="store_true",
@@ -313,43 +241,12 @@ def parse_args():
     parser.add_argument(
         '--reduce_loss',
         default='mean',
-        choices=['mean', 'sum', 'token_level_weighted'],
+        choices=['mean', 'sum'],
         help='How to reduce loss over tokens. Default is mean, but using sum can improve chat model performance.',
-    )
-    parser.add_argument(
-        '--wandb_entity', 
-        type=str,
-        default=None,
-        help='Entity to use for logging to wandb.'
-    )
-    # parser.add_argument(
-    #     '--model_type',
-    #     default='base',
-    #     help='default model',
-    # )
-    parser.add_argument(
-        '--train_data_tag',
-        default='random',
-        help='default data set',
-    )
-    # parser.add_argument(
-    #     '--change_label',
-    #     action='store_true',
-    #     help='whether to change the labels of data',
-    # )
-    parser.add_argument(
-        '--token_select_pattern',
-        default='all_token_select',
-        # choices=['random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select", "semi_combine_global_half_positive_select"],  
-        help='Pattern for token selection. You can select one or more of: "random_semi_shift", "semi_select", "o". Default is "random"',
-    )
-    parser.add_argument(
-        "--data_prop", type=float, default=0.3, help="Token proportion selected"
     )
     parser.add_argument(
         "--with_prompt_token", type=str2bool, default=False, help="whether to use prompt tokens in the selection process"
     )
-    
     args = parser.parse_args()
     # Sanity checks
     if args.dataset_name is None and args.train_file is None:
@@ -383,7 +280,6 @@ def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, wit
     # mask the prompt part for avoiding loss
     if not with_prompt_token:
         labels[:, :tokenized_prompt.input_ids.shape[1]] = -100
-        
     attention_mask = torch.ones_like(input_ids)
     return {
         'input_ids': input_ids.flatten(),
@@ -495,10 +391,6 @@ def main():
     # in the environment
     accelerator_log_kwargs = {}
 
-    if args.with_tracking:
-        accelerator_log_kwargs["log_with"] = args.report_to
-        accelerator_log_kwargs["project_dir"] = args.output_dir
-
     # if you get timeouts (e.g. due to long tokenization) increase this.
     timeout_kwargs = InitProcessGroupKwargs(timeout=timedelta(seconds=args.timeout))
 
@@ -580,10 +472,7 @@ def main():
         warning = f"""Requested tokenizer revision `{tokenizer_revision}` is different
                    from the model revision `{args.model_revision}`."""
         logger.warn(warning)
-        
-    # import pdb;pdb.set_trace()
-    
-    
+
     if args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(
             args.tokenizer_name,
@@ -592,10 +481,10 @@ def main():
             revision=tokenizer_revision,
             token=os.getenv("HF_TOKEN", None),
             # cache_dir=cache_dir,
+
+            
         )
-        
     elif args.model_name_or_path:
-        
         tokenizer = AutoTokenizer.from_pretrained(
             args.model_name_or_path,
             trust_remote_code=args.trust_remote_code,
@@ -635,7 +524,6 @@ def main():
                 use_flash_attention_2=True if args.use_flash_attn else False,
                 revision=args.model_revision,
                 token=os.getenv("HF_TOKEN", None),
-                # cache_dir=cache_dir,
             )
         else:
             model = AutoModelForCausalLM.from_pretrained(
@@ -686,7 +574,6 @@ def main():
     with deepspeed.zero.GatheredParameters(embeddings.weight, modifier_rank=None):
         embedding_size = embeddings.weight.shape[0]
     # resize does its own gather
-    
     if len(tokenizer) > embedding_size:
         # pad to multiple for tensor cores.
         model.resize_token_embeddings(len(tokenizer), pad_to_multiple_of=8)
@@ -698,28 +585,6 @@ def main():
     # set the tokenizer chat template to the tulu format
     # this makes evaluation/etc easier down the line.
     tokenizer.chat_template = "{% for message in messages %}\n{% if message['role'] == 'user' %}\n{{ '<|user|>\n' + message['content'] }}\n{% elif message['role'] == 'assistant' %}\n{{ '<|assistant|>\n'  + message['content'] + eos_token }}\n{% endif %}\n{% if loop.last and add_generation_prompt %}\n{{ '<|assistant|>' }}\n{% endif %}\n{% endfor %}" # noqa: E501
-    if args.add_bos:
-        # also add bos in the chat template
-        tokenizer.chat_template = "{{ bos_token }}" + tokenizer.chat_template
-
-
-    if args.use_lora:
-        if args.use_qlora:
-            model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=args.gradient_checkpointing)
-
-        logger.info("Initializing LORA model...")
-        peft_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM, 
-            inference_mode=False, 
-            r=args.lora_rank, 
-            lora_alpha=args.lora_alpha, 
-            lora_dropout=args.lora_dropout,
-            target_modules=["q_proj", "o_proj", "v_proj", "k_proj", "gate_proj", "up_proj", "down_proj"]
-        )
-        model = get_peft_model(model, peft_config)
-        model.print_trainable_parameters()
-    elif args.gradient_checkpointing:
-        model.gradient_checkpointing_enable()
 
     # Preprocessing the datasets.
     if "prompt" in raw_datasets["train"].column_names and "completion" in raw_datasets["train"].column_names:
@@ -759,186 +624,26 @@ def main():
             desc="Tokenizing and reformatting instruction data",
         )
         lm_datasets.set_format(type="pt")
-        # lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any())
-        
+        ### some examples may exceed the max length so that their labels will be [-100...-100] but they cannot be filtered because of the index
+        # invalid_indices = []
+        # for idx, example in enumerate(lm_datasets['train']):
+        #     if (example['labels'] == -100).all():
+        #         invalid_indices.append(idx)
+        # lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any()) 
         if args.with_prompt_token:
             print("*** current also use prompt token ***")
-            
-        train_dataset = lm_datasets["train"]
-        
-
-
-        #############################################
-        ############# token_select_pattern ##########
-        #############################################
-        orig_labels = train_dataset['labels']
-        all_token_count = sum(len(label) for label in orig_labels)
-            
-        #### random_semi_shift: shift the random and selected data; random data can help to correct the direction ##
-        if args.token_select_pattern == 'random_semi_shift': 
-            print("*** using the random select iteration form *** ")
-            
-            data_idx = int(re.findall(r'\d+', args.train_data_tag)[-1])
-            print(f"current data type idx: {data_idx}")
-            
-            ### select odd number idx dataset
-            if data_idx % 2 == 1: 
-                print("changing the data labels")
-                selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")
-            else:
-                selected_labels = orig_labels
-                
-        ### semi supervised form ##
-        elif args.token_select_pattern == 'semi_select': 
-            print("*** using the Semi_Supervised Select form ***")
-            
-            # data_idx = int(re.findall(r'\d+', args.train_data_tag)[-1])
-            # print(f"current data type idx: {data_idx}")
-            # if data_idx > 0:
-                # print("changing the data labels")
-                # selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")  
-                
-                ### add random selected data samples to avoid: pooler get pooler
-                # random_data_prop = 0.1
-                # print(f"*** add additional data to avoid pooler get pooler with random data prop: {random_data_prop} ***")
-                # with TemporarilySeededRandom(data_idx):
-                #         random_selected_samples = random.sample(list(range(len(orig_labels))), int(random_data_prop * len(orig_labels)))
-                # for idx in random_selected_samples:
-                #     selected_labels[idx] = orig_labels[idx]
-                    
-                #### add random tokens
-                # random_data_prop = 0.3
-                # random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * random_data_prop))      
-                # for i, j in random_tokens_indices:
-                #     selected_labels[i][j] = orig_labels[i][j]
-                    
-            # else: ### warm-up phase
-                # selected_labels = orig_labels   
-                
-            print("changing the data labels")
-            selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")           
-            
-        ### semi_combine_global_half_positive_select form ##
-        elif args.token_select_pattern == 'semi_combine_global_half_positive_select': 
-            print("*** using the semi_combine_global_half_positive_select Select form ***")
-            print("changing the data labels")
-
-            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
-            cur_selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")     
-            
-            target_idx = int(args.train_data_tag.split("_")[-1]) ## subset index
-
-            additional_label_tag="filtered-cured-50k-active-split-global-half-positive-fixed-base-loss"
-            additional_selected_labels = torch.load(f"results/label/token_labels_{additional_label_tag}_{target_idx}.pt")  
-             
-            for i, (cur_labels_per_sample, additional_labels_per_sample) in enumerate(zip(cur_selected_labels, additional_selected_labels)):
-                for j, (cur_label, additional_label) in enumerate(zip(cur_labels_per_sample, additional_labels_per_sample)):
-                    if cur_label != -100 or additional_label != -100:
-                        selected_labels[i][j] = cur_label if cur_label != -100 else additional_label
-                
-        ### semi_combine_global_half_positive_select form ##
-        elif args.token_select_pattern == 'semi_combine_active_split_global_half_positive_select': 
-            print("*** using the semi_combine_active_split_global_half_positive_select Select form ***")
-
-            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
-            cur_selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")     
-                        
-            active_split_selected_labels = torch.load(f"results/active_split_temp_label/token_labels_{args.train_data_tag}.pt")  
-            
-            for i, (cur_labels_per_sample, additional_labels_per_sample) in enumerate(zip(cur_selected_labels, active_split_selected_labels)):
-                for j, (cur_label, additional_label) in enumerate(zip(cur_labels_per_sample, additional_labels_per_sample)):
-                    if cur_label != -100 or additional_label != -100:
-                        selected_labels[i][j] = cur_label if cur_label != -100 else additional_label
-                
-            
-        ## random selection ##
-        elif args.token_select_pattern == 'random_select': 
-            print("*** using the Random Select selection ***")
-            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
-
-            random_tokens_indices = get_random_k_indices(orig_labels, args.data_prop)
-            select_sample_idx = [item[0] for item in random_tokens_indices]
-            select_sample_idx = set(select_sample_idx)
-            print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(orig_labels)}")        
-            for i, j in random_tokens_indices:
-                selected_labels[i][j] = orig_labels[i][j].item()
-                
-            # for i in range(len(selected_labels)):
-            #     selected_labels[i] = torch.Tensor(selected_labels[i], dtype=torch.int32)
-
-        ## loss_ranking_select ##
-        elif args.token_select_pattern == 'loss_ranking_select': ## loss-based or ppl-based form
-            print("*** using the Loss or PPL-based Select form ***")
-            ## TODO: need to check the losses file
-            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
-            print(f"Current loss file is: {loss_file}")
-            
-            selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
-
-            losses_base_model = torch.load(loss_file)
-            
-            select_tokens_indices = get_global_top_k_indices(losses_base_model, args.data_prop)
-
-            select_sample_idx = [item[0] for item in select_tokens_indices]
-            select_sample_idx = set(select_sample_idx)
-            print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(orig_labels)}")        
-            for i, j in select_tokens_indices:
-                    selected_labels[i][j] = orig_labels[i][j].item() 
-                    
-        elif args.token_select_pattern == 'all_token_select':
-            print("*** using all original tokens (labels) ***")
-            selected_labels = orig_labels
-        
         else:
-            print(f"Unknown token select pattern: {args.token_select_pattern}!")
-            raise NotImplementedError
-        
-        ### choose the selected labels or tokens
-        if args.token_select_pattern != 'all_token_select':
-            train_dataset = train_dataset.map(
-                lambda examples, idx: {'labels': selected_labels[idx]},
-                with_indices=True
-            ) 
-    ################################################
-    ### filter out those examples with all -100 labels
-    # orig_data_size = len(train_dataset)
-    # train_dataset = train_dataset.filter(lambda example: (example['labels'] != -100).any())
-    # print(f"Filter out sample size: {orig_data_size - len(train_dataset)}")
-    ################################################
-    
-    
+            print("*** current only use response token ***")
+            
+    train_dataset = lm_datasets["train"]
+
     # DataLoaders creation:
     train_dataloader = DataLoader(
         train_dataset, 
-        # shuffle=True, 
         shuffle=False, 
         collate_fn=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding="longest"),
         batch_size=args.per_device_train_batch_size
-    )
-
-    # Optimizer
-    # Split weights in two groups, one with weight decay and the other not.
-    no_decay = ["bias", "layer_norm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-    if args.use_qlora:
-        from bitsandbytes.optim import AdamW
-        optimizer = AdamW(
-            optimizer_grouped_parameters,
-            lr=args.learning_rate,
-            optim_bits=8 if args.use_8bit_optimizer else 32,
-            is_paged=True
-        )
-    else:
-        optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=args.learning_rate)
+    ) 
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
@@ -947,24 +652,10 @@ def main():
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
         overrode_max_train_steps = True
 
-    # Create the learning rate scheduler.
-    # Note: the current accelerator.step() calls the .step() of the real scheduler for the `num_processes` times. This is because they assume 
-    # the user initialize the scheduler with the entire training set. In the case of data parallel training, each process only
-    # sees a subset (1/num_processes) of the training set. So each time the process needs to update the lr multiple times so that the total 
-    # number of updates in the end matches the num_training_steps here.
-    # Here we need to set the num_training_steps to either using the entire training set (when epochs is specified) or we need to multiply the 
-    # num_training_steps by num_processes so that the total number of updates matches the num_training_steps.
-    num_training_steps_for_scheduler = args.max_train_steps if overrode_max_train_steps else args.max_train_steps * accelerator.num_processes
-    lr_scheduler = get_scheduler(
-        name=args.lr_scheduler_type,
-        optimizer=optimizer,
-        num_training_steps=num_training_steps_for_scheduler,
-        num_warmup_steps=int(num_training_steps_for_scheduler * args.warmup_ratio),
-    )
 
     # Prepare everything with `accelerator`.
-    model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, lr_scheduler
+    model, train_dataloader = accelerator.prepare(
+        model, train_dataloader
     )
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
@@ -973,22 +664,6 @@ def main():
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
     # Afterwards we recalculate our number of training epochs
     args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
-
-    # Figure out how many steps we should save the Accelerator states
-    checkpointing_steps = args.checkpointing_steps
-    if checkpointing_steps is not None and checkpointing_steps.isdigit():
-        checkpointing_steps = int(checkpointing_steps)
-
-    # We need to initialize the trackers we use, and also store our configuration.
-    # The trackers initializes automatically on the main process.
-    if args.with_tracking:
-        experiment_config = vars(args)
-        # TensorBoard cannot log Enums, need the raw value
-        experiment_config["lr_scheduler_type"] = experiment_config["lr_scheduler_type"].value
-        accelerator.init_trackers("open_instruct_sft", 
-                                  experiment_config, 
-                                  init_kwargs={"wandb": {"entity": args.wandb_entity}})
-
 
     # Train!
     total_batch_size = args.per_device_train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -1005,107 +680,30 @@ def main():
     completed_steps = 0
     starting_epoch = 0
 
-    # Potentially load in the weights and states from a previous save
-    if args.resume_from_checkpoint:
-        if args.resume_from_checkpoint is not None or args.resume_from_checkpoint != "":
-            checkpoint_path = args.resume_from_checkpoint
-            path = os.path.basename(args.resume_from_checkpoint)
-        else:
-            # Get the most recent checkpoint
-            dirs = [f.name for f in os.scandir(os.getcwd()) if f.is_dir()]
-            dirs.sort(key=os.path.getctime)
-            path = dirs[
-                -1
-            ]  # Sorts folders by date modified, most recent checkpoint is the last
-            checkpoint_path = path
-            path = os.path.basename(checkpoint_path)
-
-        accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
-        accelerator.load_state(path)
-        # Extract `epoch_{i}` or `step_{i}`
-        training_difference = os.path.splitext(path)[0]
-
-        if "epoch" in training_difference:
-            starting_epoch = int(training_difference.replace("epoch_", "")) + 1
-            resume_step = None
-            completed_steps = starting_epoch * num_update_steps_per_epoch
-        else:
-            # need to multiply `gradient_accumulation_steps` to reflect real steps
-            resume_step = (
-                int(training_difference.replace("step_", ""))
-                * args.gradient_accumulation_steps
-            )
-            starting_epoch = resume_step // len(train_dataloader)
-            completed_steps = resume_step // args.gradient_accumulation_steps
-            resume_step -= starting_epoch * len(train_dataloader)
 
     # update the progress_bar if load from checkpoint
     progress_bar.update(completed_steps)
-    
+    model.eval()
+    with torch.no_grad():
+        for epoch in range(starting_epoch, args.num_train_epochs):
+            total_loss = 0
 
-    
-    for epoch in range(starting_epoch, args.num_train_epochs):
-        model.train()
-        total_loss = 0
-        if (
-            args.resume_from_checkpoint
-            and epoch == starting_epoch
-            and resume_step is not None
-        ):
-            # We skip the first `n` batches in the dataloader when resuming from a checkpoint
-            active_dataloader = accelerator.skip_first_batches(
-                train_dataloader, resume_step
-            )
-        else:
             active_dataloader = train_dataloader
             
-        token_losses = [] 
-        batch_indices = []
-        token_lengths = []
-        pad_length = 1024
-        
-        for step, batch in enumerate(active_dataloader):
-            with accelerator.accumulate(model):
+            token_losses = [] 
+            batch_indices = []
+            token_lengths = []
+            pad_length = 2048
+            token_logits = []
+            for step, batch in enumerate(active_dataloader):
+                # with accelerator.accumulate(model):
+
                 indices = batch["idx"]
                 # indices = [0 for _ in range(batch["labels"].size(0))]
                 outputs = model(input_ids=batch['input_ids'], labels=batch['labels'], attention_mask=batch['attention_mask'], use_cache=False)
 
                 if args.reduce_loss == 'mean':
                     loss = outputs.loss
-                    
-                elif args.reduce_loss == 'token_level_weighted':
-                    logits = outputs.logits
-
-                    labels = batch["labels"]
-                    # Shift so that tokens < n predict n
-                    shift_logits = logits[..., :-1, :].contiguous()
-                    shift_labels = labels[..., 1:].contiguous()
-                    
-                    batch_size, seq_len_minus_1 = shift_labels.shape
-
-                    # Flatten the tokens
-                    loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-
-                    shift_logits = shift_logits.view(-1, embedding_size)
-                    shift_labels = shift_labels.view(-1)
-                    
-                    # Enable model parallelism
-                    shift_labels = shift_labels.to(shift_logits.device)
-                    loss_1d = loss_fct(shift_logits, shift_labels)
-                    loss_2d = loss_1d.view(batch_size, seq_len_minus_1)
-                    
-                    ## ignore the -100 token
-                    valid_mask = (shift_labels.view(batch_size, seq_len_minus_1) != -100)
-                    
-                    ## TODO define token-level weights
-                    token_level_weights = (shift_labels.view(batch_size, seq_len_minus_1) != -100).float()
-                    
-                    weighted_loss_2d = loss_2d * token_level_weights
-                    weighted_loss_2d = weighted_loss_2d * valid_mask.float()
-                    
-                    loss_sum = weighted_loss_2d.sum()
-                    num_valid_tokens = valid_mask.sum()
-                    loss = loss_sum / num_valid_tokens               
                 else:
                     # reduce loss is sum
                     # this ensures that we weight all tokens in the dataset equally,
@@ -1116,89 +714,92 @@ def main():
                     # more discussion and details.
                     
                     logits = outputs.logits
-
-                    labels = batch["labels"]
+                    # labels = batch["labels"]
                     # Shift so that tokens < n predict n
-                    shift_logits = logits[..., :-1, :].contiguous()
-                    shift_labels = labels[..., 1:].contiguous()
+                    shift_logits = logits[..., :-1, :].contiguous().half()
+                    # shift_labels = labels[..., 1:].contiguous()
+                    # token_shift_logits = shift_logits.half()
+
                     # Flatten the tokens
-                    loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
-                    shift_logits = shift_logits.view(-1, embedding_size)
-                    shift_labels = shift_labels.view(-1)
-                    
-                    # Enable model parallelism
-                    shift_labels = shift_labels.to(shift_logits.device)
-                    loss = loss_fct(shift_logits, shift_labels)
-                    
-                # We keep track of the loss at each logged step
-                total_loss += loss.detach().float()
-                accelerator.backward(loss)
-                # clip gradient norm. don't do this with deepspeed
-                if accelerator.sync_gradients and args.clip_grad_norm > 0:
-                    accelerator.clip_grad_norm_(model.parameters(), args.clip_grad_norm)
-                optimizer.step()
-                optimizer.zero_grad()
-                lr_scheduler.step() 
+                    # loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
+                    # loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
 
-            # Checks if the accelerator has performed an optimization step behind the scenes
-            if accelerator.sync_gradients:
-                progress_bar.update(1)
-                completed_steps += 1
-                if args.logging_steps and completed_steps % args.logging_steps == 0:
-                    avg_loss = accelerator.gather(total_loss).mean().item() / args.gradient_accumulation_steps / args.logging_steps
-                    logger.info(f"  Step: {completed_steps}, LR: {lr_scheduler.get_last_lr()[0]}, Loss: {avg_loss}")
-                    if args.with_tracking:
-                        accelerator.log(
-                            {
-                                "learning_rate": lr_scheduler.get_last_lr()[0],
-                                "train_loss": avg_loss,
-                            },
-                            step=completed_steps,
-                        )
-                    total_loss = 0
+                    # shift_logits = shift_logits.view(-1, embedding_size)
+                    # shift_labels = shift_labels.view(-1)
+                    # # Enable model parallelism
+                    # shift_labels = shift_labels.to(shift_logits.device)
                     
-                if isinstance(checkpointing_steps, int):
-                    if completed_steps % checkpointing_steps == 0:
-                        output_dir = f"step_{completed_steps}"
-                        if args.output_dir is not None:
-                            output_dir = os.path.join(args.output_dir, output_dir)
-                        save_with_accelerate(accelerator, model, tokenizer, output_dir, args)
+                    # # loss = loss_fct(shift_logits, shift_labels)
+                    # per_token_loss = loss_fct(shift_logits, shift_labels)
+                    # loss = per_token_loss.sum()
 
-                if completed_steps >= args.max_train_steps:
-                    break
+                    # Save per-token loss (reshape back to match sequence dimensions if needed)
+                    # per_token_loss = per_token_loss.view(batch["labels"].size(0), -1)  # Shape: [batch_size, seq_len]
+                    # padded_token_losses = F.pad(per_token_loss, (0, pad_length - per_token_loss.shape[-1]), value=0)
+                    padded_token_logits = F.pad(shift_logits, (0, 0, 0, pad_length - batch["labels"].shape[-1]+1), value=0)
+                    import pdb;pdb.set_trace()
+                    # token_losses.append(padded_token_losses)  # Save loss to analyze later
+                    batch_indices.append(indices)
+
+                    token_logits.append(padded_token_logits) ##store the logits
+                    
+                ## We keep track of the loss at each logged step
+                total_loss += 0
                 
+                ## Checks if the accelerator has performed an optimization step behind the scenes
+                if accelerator.sync_gradients:
+                    progress_bar.update(1) ## tdqm
+                    completed_steps += 1
+                    if args.logging_steps and completed_steps % args.logging_steps == 0:
+                        avg_loss = accelerator.gather(total_loss).mean().item() / args.gradient_accumulation_steps / args.logging_steps
+                        logger.info(f"  Step: {completed_steps}, Loss: {avg_loss}")
+                        total_loss = 0
 
-        if args.checkpointing_steps == "epoch":
-            output_dir = f"epoch_{epoch}"
-            if args.output_dir is not None:
-                output_dir = os.path.join(args.output_dir, output_dir)
-            save_with_accelerate(accelerator, model, tokenizer, output_dir, args)
-
-    if args.output_dir is not None:
-        if accelerator.is_main_process:
-            tokenizer.save_pretrained(args.output_dir)
-        save_with_accelerate(accelerator, model, tokenizer, args.output_dir, args)
+                    if completed_steps >= args.max_train_steps:
+                        break
+                
 
     accelerator.wait_for_everyone()
     
-    ## gather the loss 
+    all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
     # all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
-    # all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
     # all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
+    all_token_logits = accelerator.gather(torch.cat(token_logits, dim=0))
+    
+    if accelerator.is_main_process:
+        # gather the loss 
+        all_batch_indices = all_batch_indices.cpu().tolist()
+        # all_token_losses = all_token_losses.cpu().tolist()
+        # all_token_lengths = all_token_lengths.cpu().tolist()
+        all_token_logits = all_token_logits.cpu().tolist()
+        ###Note: avoid the index (key) replicate for unbalance data split
+        gathered_results = {}
+        gathered_results = dict(zip(all_batch_indices, all_token_logits)) 
+        
+        # Sort results by original index
+        sorted_results = sorted(gathered_results.items(), key=lambda x: x[0]) 
+        
+        sorted_token_logits = [x[1] for x in sorted_results]
+        # sorted_token_lengths = [x[1][1] for x in sorted_results]
+        
+        
+        final_token_logits = []
+        raw_labels = train_dataset['labels']
+        for i, sample_label in enumerate(raw_labels):
+            final_token_logits.append([0] + sorted_token_logits[i][:len(sample_label)-1])  ### [0] correct the biased weight and set the first token with loss 0
+            
+        ## save the loss
+        logits_path = "results/logits/"
+        if not os.path.exists(logits_path):
+            os.makedirs(logits_path)
+        
+        model_name = os.path.basename(args.model_name_or_path)
+        data_type= os.path.basename(args.train_file).split(".json")[0]
+        final_data_path = logits_path + f"token_logits_{data_type}_{model_name}.pt"
+        import pdb;pdb.set_trace()
 
-    # sorted_indices = torch.argsort(all_batch_indices)
-    # sorted_token_losses = all_token_losses[sorted_indices]
-    # sorted_token_lengths = all_token_lengths[sorted_indices]
-    # final_token_losses = []
-    # for i, token_len in enumerate(sorted_token_lengths):
-    #     final_token_losses.append(sorted_token_losses[i, :token_len].tolist())  ##change
+        torch.save(final_token_logits, final_data_path)
+        print(f"*** Token-level loss has been stored in {final_data_path} ***")
 
-    ## save the loss
-    # torch.save(final_token_losses, "final_token_losses.pt")
-
-    if args.with_tracking:
-        accelerator.end_training()
-
- 
 if __name__ == "__main__":
     main()

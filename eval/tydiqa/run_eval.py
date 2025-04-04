@@ -3,7 +3,7 @@ import os
 import json
 import random
 import torch
-# import vllm
+import vllm
 import evaluate
 import numpy as np
 from eval.utils import (
@@ -129,9 +129,6 @@ def main(args):
         import tiktoken
         tokenizer = tiktoken.get_encoding("cl100k_base")
 
-    
-    # model = model.bfloat16()
-    model.bfloat16()
     
     # reduce context length to max_context_length
     if args.max_context_length:

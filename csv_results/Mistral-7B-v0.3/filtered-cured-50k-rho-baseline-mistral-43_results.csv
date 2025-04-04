@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-rho-baseline-mistral-43,44.11,38.0,29.15,62.47,61.39,51.77,82.74,52.8

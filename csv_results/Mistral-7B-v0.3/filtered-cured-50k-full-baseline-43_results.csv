@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-full-baseline-43,43.53,36.12,26.05,62.63,61.1,50.99,83.72,52.0

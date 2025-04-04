@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-10k-warmup-llama3b-43,40.82,42.27,24.65,56.86,55.75,43.58,77.36,48.8

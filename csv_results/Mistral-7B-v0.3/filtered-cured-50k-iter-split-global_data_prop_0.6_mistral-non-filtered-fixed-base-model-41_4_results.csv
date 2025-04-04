@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-iter-split-global-data-prop-0.6-mistral-non-filtered-fixed-base-model-41-4,45.27,37.03,27.29,62.21,61.47,50.39,81.53,52.2

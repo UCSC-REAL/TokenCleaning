@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-iter-split-global-data-prop-0.6-llama3b-non-filtered-fixed-base-model-4,51.07,54.69,28.22,56.18,55.81,45.99,77.33,52.8

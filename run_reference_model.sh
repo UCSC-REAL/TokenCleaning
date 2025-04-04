@@ -1,6 +1,6 @@
 # Set environment variables
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5
-NUM_GPUS=6
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+NUM_GPUS=4
 
 
 cluster_root_path="/mnt/data1/jinlong/token_selection_output"
@@ -17,7 +17,7 @@ random_seed=43
 with_prompt_token=False
 
 # Data and training parameters
-train_data_tag="filtered-cured-50k-full-baseline-${random_seed}"
+train_data_tag="filtered-cured-10k-warmup-llama3b-${random_seed}"
 # train_data_tag="filtered-cured-10k-shuffle-warmup" ## for warmup model
 
 # train_data_tag="filtered-cured-10k-warmup" ## for warmup model
@@ -32,7 +32,7 @@ main_process_port=29509
 train_data="selected_data/${train_data_tag}.json"
 cur_train_model=$base_model
 
-cp "selected_data/filtered-cured-50k_dataset.json" $train_data
+cp "selected_data/filtered-cured-10k-warmup.json" $train_data
 
 # Define paths for finetuning
 BATCH_SIZE_PER_GPU=6

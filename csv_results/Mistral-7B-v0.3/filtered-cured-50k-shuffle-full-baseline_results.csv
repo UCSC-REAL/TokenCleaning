@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-shuffle-full-baseline,43.67,55.62,25.27,62.41,61.14,50.56,83.85,54.6
