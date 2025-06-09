@@ -799,31 +799,7 @@ def main():
                 
         ### semi supervised form ##
         elif args.token_select_pattern == 'semi_select': 
-            print("*** using the Semi_Supervised Select form ***")
-            
-            # data_idx = int(re.findall(r'\d+', args.train_data_tag)[-1])
-            # print(f"current data type idx: {data_idx}")
-            # if data_idx > 0:
-                # print("changing the data labels")
-                # selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")  
-                
-                ### add random selected data samples to avoid: pooler get pooler
-                # random_data_prop = 0.1
-                # print(f"*** add additional data to avoid pooler get pooler with random data prop: {random_data_prop} ***")
-                # with TemporarilySeededRandom(data_idx):
-                #         random_selected_samples = random.sample(list(range(len(orig_labels))), int(random_data_prop * len(orig_labels)))
-                # for idx in random_selected_samples:
-                #     selected_labels[idx] = orig_labels[idx]
-                    
-                #### add random tokens
-                # random_data_prop = 0.3
-                # random_tokens_indices = get_random_k_indices(orig_labels, int(all_token_count * random_data_prop))      
-                # for i, j in random_tokens_indices:
-                #     selected_labels[i][j] = orig_labels[i][j]
-                    
-            # else: ### warm-up phase
-                # selected_labels = orig_labels   
-                
+            print("*** using the Semi_Supervised Select form ***") 
             print("changing the data labels")
             selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")           
             
@@ -1033,7 +1009,7 @@ def main():
 
         accelerator.print(f"Resumed from checkpoint: {checkpoint_path}")
         accelerator.load_state(path)
-        # Extract `epoch_{i}` or `step_{i}`
+        # Extract `epoch_{i}` or `step_{i}` 
         training_difference = os.path.splitext(path)[0]
 
         if "epoch" in training_difference:
@@ -1070,10 +1046,6 @@ def main():
         else:
             active_dataloader = train_dataloader
             
-        token_losses = [] 
-        batch_indices = []
-        token_lengths = []
-        pad_length = 1024
         
         for step, batch in enumerate(active_dataloader):
             with accelerator.accumulate(model):
@@ -1192,20 +1164,7 @@ def main():
 
     accelerator.wait_for_everyone()
     
-    ## gather the loss 
-    # all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
-    # all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
-    # all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
 
-    # sorted_indices = torch.argsort(all_batch_indices)
-    # sorted_token_losses = all_token_losses[sorted_indices]
-    # sorted_token_lengths = all_token_lengths[sorted_indices]
-    # final_token_losses = []
-    # for i, token_len in enumerate(sorted_token_lengths):
-    #     final_token_losses.append(sorted_token_losses[i, :token_len].tolist())  ##change
-
-    ## save the loss
-    # torch.save(final_token_losses, "final_token_losses.pt")
 
     if args.with_tracking:
         accelerator.end_training()
