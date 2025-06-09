@@ -32,7 +32,7 @@ This project investigates token quality from a noisy-label perspective and propo
 <!-- - Reference: [Not All Tokens Are What You Need for Pretraining](https://openreview.net/pdf?id=0NMzBwqaAJ), NeurIPS 2024 best paper runner up. -->
 
 ## 🎉🎉 News 
-- [x] [2025.02.01] 🚀🚀 Release the code of Token-Cleaning.
+- [x] [2025.02.01] 🚀🚀 Accepted by ICML 2025.
 
 
 
