@@ -16,7 +16,7 @@ accelerate launch \
     --num_processes $NUM_GPUS \
     --config_file fsdp_configs/fsdp_config.yaml \
     --main_process_port $main_process_port \
-    open_instruct/calculate_token_loss.py \
+    scripts/calculate_token_loss.py \
     --model_name_or_path $model_name_or_path \
     --tokenizer_name $model_name_or_path \
     --train_file $train_data \

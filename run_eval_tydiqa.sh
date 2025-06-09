@@ -52,128 +52,6 @@ declare -A TASK_PARAMS=(
 base_model="meta-llama/Llama-3.1-8B"
 # base_model="mistralai/Mistral-7B-v0.3"
 
-# Train_DATASET_LIST=("base")
-# Train_DATASET_LIST=("filtered-cured-50k-shuffle-random-baseline")
-# Train_DATASET_LIST=("filtered-cured-10k-warmup")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_combine_active-split-global-half-positive-fixed-base-loss-using-warmup-label_mistral")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_combine_active-split-global-half-positive-fixed-base-loss-using-warmup-label_llama8b")
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline")
-# Train_DATASET_LIST=("filtered-cured-50k-active-split-global-half-positive-fixed-base-loss-using-warmup-llama8b")
-
-
-# Train_DATASET_LIST=("filtered-cured-50k-active-split-global-half-positive-fixed-base-loss-using-warmup-mistral" "filtered-cured-50k-iter-split-global_data_prop_0.3_combine_active-split-global-half-positive-fixed-base-loss-using-warmup-label_mistral")
-
-# Train_DATASET_LIST=("filtered-cured-50k-active-split-global-half-positive-fixed-base-loss-using-warmup-llama3b")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_combine_active-split-global-half-positive-fixed-base-loss-using-warmup-label_llama8b_all")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_combine_active-split-global-half-positive-fixed-base-loss-using-warmup-label_mistral_all")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b" "filtered-cured-50k-iter-split-global_data_prop_0.3_llama8b" "filtered-cured-50k-iter-split-global_data_prop_0.3_mistral")
-
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-global")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_combine_active-split-data-prop-0.6-fixed-base-loss-using-warmup-label_llama3b")
-
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-with-prompt")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered" "filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered-with-prompt" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-with-prompt")
-
-
-
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-with-prompt-llama8b")
-
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6-non-filtered-combine_active-split-data-prop-0.6-fixed-base-loss-using-warmup-label_llama3b")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3-non-filtered-combine_active-split-data-prop-0.6-fixed-base-loss-using-warmup-label_llama3b")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3-non-filtered-combine_active-split-data-prop-0.45-fixed-base-loss-using-warmup-label_llama3b")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3-non-filtered-combine_active-split-sample-data-prop-0.3-fixed-base-loss-using-warmup-label_llama3b")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-global_prop_0.3-non-filtered-combine_warmup-sample-prop-0.3-label_llama3b")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-global-prop-0.3-non-filtered-combine-warmup-sample-prop-0.6-label-llama3b")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-global-prop-0.6-non-filtered-combine-warmup-sample-prop-0.3-label-llama3b" "filtered-cured-50k-iter-global-prop-0.6-non-filtered-combine-warmup-sample-prop-0.6-label-llama3b")
-
-
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-with-prompt")
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-with-prompt-llama3b")
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-with-prompt-llama3b-new")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered-fixed-base-model")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.7_llama3b-non-filtered-fixed-base-model")
-
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-global" "filtered-cured-50k-rho-baseline-sample")
-# Train_DATASET_LIST=("base")
-# Train_DATASET_LIST=("filtered-cured-10k-warmup-llama8b")
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline")
-# Train_DATASET_LIST=("full-300k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model")
-
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.8_llama3b-non-filtered-fixed-base-model")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model_all")
-
-# Train_DATASET_LIST=("filtered-cured-50k-full-baseline" "filtered-cured-50k-random-baseline")
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_llama8b-non-filtered-fixed-base-model" "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model")
-# Train_DATASET_LIST=("ds2-10k-infl-scores-global-llama3b")
-
-# valid_dataset_name=truthfulqa ##mmlu bbh gsm truthfulqa
-# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_llama8b-non-filtered-fixed-base-model")
-# Train_DATASET_LIST=(ds2-10k-infl-scores-global-${valid_dataset_name}-llama3b)
-
-#### llama3b
-# Train_DATASET_LIST=(
-#     "filtered-cured-50k-rho-baseline-sample-llama3b-41" "filtered-cured-50k-rho-baseline-sample-llama3b-43" 
-#     "filtered-cured-50k-random-baseline-41" "filtered-cured-50k-random-baseline-43"
-#     "filtered-cured-50k-full-baseline-41" "filtered-cured-50k-full-baseline-43"
-#     "filtered-cured-10k-warmup-llama3b-41" "filtered-cured-10k-warmup-llama3b-43"
-#     "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model-41_4" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model-43_4"
-#     ) 
-
-# ### mistral
-# Train_DATASET_LIST=(
-#     "filtered-cured-50k-rho-baseline-mistral-41" "filtered-cured-50k-rho-baseline-mistral-43" 
-#     # "filtered-cured-50k-random-baseline-41" "filtered-cured-50k-random-baseline-43"
-#     "filtered-cured-50k-full-baseline-41" "filtered-cured-50k-full-baseline-43"
-#     "filtered-cured-10k-warmup-mistral-41" "filtered-cured-10k-warmup-mistral-43"
-#     "filtered-cured-50k-rho-baseline-mistral-global-41" "filtered-cured-50k-rho-baseline-mistral-global-43"
-#     # "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model-41_4" "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model-43_4"
-#     ) 
-
-# Train_DATASET_LIST=(
-#     "filtered-cured-50k-rho-baseline-mistral-global-41" "filtered-cured-50k-rho-baseline-mistral-global-43"
-#     ) 
-
-
-# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline" 
-# "filtered-cured-50k-shuffle-random-baseline" 
-# "filtered-cured-50k-shuffle-full-baseline" 
-# "filtered-cured-10k-warmup-mistral"
-# "filtered-cured-50k-rho-baseline-mistral-global"
-# "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model_4"
-# )
-
-# Train_DATASET_LIST=("filtered-cured-10k-warmup-mistral")
-### llama8b
-# Train_DATASET_LIST=(
-#     "filtered-cured-50k-rho-baseline-llama8b-41" "filtered-cured-50k-rho-baseline-llama8b-43" 
-#     "filtered-cured-50k-random-baseline-41" "filtered-cured-50k-random-baseline-43"
-#     "filtered-cured-50k-full-baseline-41" "filtered-cured-50k-full-baseline-43"
-#     "filtered-cured-10k-warmup-llama8b-41" "filtered-cured-10k-warmup-llama8b-43"
-#     "filtered-cured-50k-rho-baseline-llama8b-global-41" "filtered-cured-50k-rho-baseline-llama8b-global-43"
-#     "filtered-cured-50k-iter-split-global_data_prop_0.6_llama8b-non-filtered-fixed-base-model-41_4" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama8b-non-filtered-fixed-base-model-43_4"
-#     ) 
-
-
-### mistral
-# Train_DATASET_LIST=(
-    # "filtered-cured-10k-warmup-mistral-new-41" "filtered-cured-10k-warmup-mistral-new-43"
-    # "filtered-cured-50k-full-baseline-mistral-41" "filtered-cured-50k-full-baseline-mistral-43"
-    # "filtered-cured-50k-fixed-model-cleaning-mistral-41" "filtered-cured-50k-fixed-model-cleaning-mistral-43"
-    # "filtered-cured-50k-rho-baseline-mistral-new-41" "filtered-cured-50k-rho-baseline-mistral-new-43"
-    # "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model-new-41_4" "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model-new-43_4"
-    # ) 
-
 Train_DATASET_LIST=(
     "filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model_4"
     ) 
@@ -203,9 +81,7 @@ for idx in "${!Train_DATASET_LIST[@]}"; do
 
     ##############################################################
     model_path="/mnt/data1/jinlong/token_selection_output/models/${base_model}"
-    # model_tags=("${train_dataset_name}_0" "${train_dataset_name}_1" "${train_dataset_name}_2" "${train_dataset_name}_3" "${train_dataset_name}_4")
 
-    ##############################################################
 
 
     if [[ "$train_dataset_name" == *"llama3b"* ]]; then

@@ -61,7 +61,7 @@ for train_dataset_name in ${Train_DATASET_LIST[@]}; do
     reference_model=$base_model
 
     echo "*** subset json file generation ***"
-    python open_instruct/generate_subset.py --generate_train_data_name $train_dataset_name
+    python scripts/generate_subset.py --generate_train_data_name $train_dataset_name
 
     if [[ "$train_dataset_name" == *"0.3"* ]]; then
         data_prop_list=(0.3)
@@ -131,7 +131,7 @@ for train_dataset_name in ${Train_DATASET_LIST[@]}; do
                 ## Run Python script to generate data
                 ### use reverse loss take the previous model as the reference model
                 echo "start generating labels.."
-                python open_instruct/generate_token_label.py \
+                python scripts/generate_token_label.py \
                     --base_model_name_or_path $cur_train_model  \
                     --ref_model_name_or_path $reference_model \
                     --train_data $train_data \

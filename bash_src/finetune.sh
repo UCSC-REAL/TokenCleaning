@@ -32,7 +32,7 @@ accelerate launch \
     --num_processes $NUM_GPUS \
     --config_file fsdp_configs/fsdp_config.yaml \
     --main_process_port $main_process_port \
-    open_instruct/finetune.py \
+    scripts/finetune.py \
     --model_name_or_path $model_name_or_path \
     --gradient_checkpointing \
     --use_lora \
@@ -62,7 +62,7 @@ accelerate launch \
     --seed $random_seed 
     # --use_slow_tokenizer 
 
-python open_instruct/merge_lora.py \
+python scripts/merge_lora.py \
     --base_model_name_or_path $model_name_or_path \
     --lora_model_name_or_path $cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_${train_data_tag}/ \
     --output_dir $cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag}/ \

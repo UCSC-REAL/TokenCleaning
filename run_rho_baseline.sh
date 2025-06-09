@@ -18,7 +18,7 @@ reference_model="meta-llama/Llama-3.1-8B-Instruct"
 # reference_model="/mnt/data1/jinlong/token_selection_output/models/${base_model}/data_prop_0.6/lora_merged_filtered-cured-10k-warmup-llama3b"
 
 with_prompt_token=False
-token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+token_select_pattern="token_cleaning" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 select_token_level=global 
 # select_token_level=global  ## token_ranking_sample_select global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
 
@@ -56,7 +56,7 @@ cp "selected_data/filtered-cured-50k_dataset.json" $train_data
 
 # ## Run Python script to generate data
 echo "start generating labels.."
-python open_instruct/generate_token_label.py \
+python scripts/generate_token_label.py \
     --base_model_name_or_path $cur_train_model \
     --ref_model_name_or_path $reference_model \
     --train_data $train_data \

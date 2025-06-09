@@ -5,31 +5,6 @@ from functools import partial
 import numpy as np
 import fire
 import os
-import torch.nn.functional as F
-
-def compute_kl_div_score(logits_pre, logits_cur, reduction='batchmean'):
-    """
-    计算两个模型在整个序列上的 KL 散度 (Kullback-Leibler Divergence)。
-
-    参数:
-        logits_pre (torch.Tensor): 之前模型的 logits, 形状 (batch_size, seq_len, vocab_size)。
-        logits_cur (torch.Tensor): 当前模型的 logits, 形状 (batch_size, seq_len, vocab_size)。
-        reduction (str): KL 散度的 reduction 方法 ('batchmean', 'sum', 'mean', 'none')。
-
-    返回:
-        torch.Tensor: KL 散度分数，形状 (batch_size, seq_len) 或标量。
-    """
-    # 确保两个 logits 形状一致
-    assert logits_pre.shape == logits_cur.shape, "logits_pre 和 logits_cur 形状必须相同"
-
-    # 计算 log-probabilities (log softmax)
-    log_probs_pre = F.log_softmax(logits_pre, dim=-1)  # 之前模型的 log 概率
-    probs_cur = F.softmax(logits_cur, dim=-1)  # 当前模型的普通概率
-
-    # 计算 KL 散度（每个 token 计算一次）
-    kl_div = F.kl_div(log_probs_pre, probs_cur, reduction=reduction)
-
-    return kl_div
 
 def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
     '''
@@ -159,65 +134,6 @@ def get_sample_top_k_indices(raw_labels, all_losses, data_prop):
     return response_tokens_indices
 
 
-def get_positive_indices(data):
-    positive_indices = [(i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
-    return positive_indices
-
-def get_half_positive_indices(data):
-    selected_flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
-    top_half_positive = sorted(selected_flattened, key=lambda x: x[0], reverse=True)[:int(len(selected_flattened)/2)] ##loss
-
-    top_half_positive_indices = [(item[1], item[2]) for item in top_half_positive]
-    return top_half_positive_indices
-
-def  get_curve_positive_indices(losses_pre, losses_cur, alpha = 2, beta = 0.07, threshold=5):
-    #alpha, beta = 1.2, 0.1
-    #alpha, beta = 1.5, 0.5    
-    curve_positive_indices=[]
-    
-    for i, (sample_losses_pre, sample_losses_cur) in enumerate(zip(losses_pre, losses_cur)):
-        for j, (token_loss_pre, token_loss_cur) in enumerate(zip(sample_losses_pre, sample_losses_cur)):
-            if token_loss_pre > alpha * token_loss_cur + beta and token_loss_cur < threshold: #linear split
-                curve_positive_indices.append((i, j))
-
-    return curve_positive_indices
-
-
-def  get_curve_smooth_positive_indices(losses_pre, losses_cur, subset_idx, num_subset, alpha_base = 2, beta_base = 0.07, threshold=5):
-    #alpha, beta = 1.2, 0.1
-    #alpha, beta = 1.5, 0.5   
-    #alpha, beta = 2, 0.07  
-
-    alpha = alpha_base - subset_idx / (num_subset-1) * 0.9
-    beta = beta_base - subset_idx / (num_subset-1)  * 0.05
-    
-    curve_positive_indices=[]
-    
-    for i, (sample_losses_pre, sample_losses_cur) in enumerate(zip(losses_pre, losses_cur)):
-        for j, (token_loss_pre, token_loss_cur) in enumerate(zip(sample_losses_pre, sample_losses_cur)):
-            if token_loss_pre > alpha * token_loss_cur + beta and token_loss_cur < threshold: #linear split
-                curve_positive_indices.append((i, j))
-
-    return curve_positive_indices
-
-
-def get_fixed_positive_indices(data, k):
-    selected_flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist) if value > 0]
-    top_half_positive = sorted(selected_flattened, key=lambda x: x[0], reverse=True)[:min(k, len(selected_flattened))] ##loss
-
-    top_half_positive_indices = [(item[1], item[2]) for item in top_half_positive]
-    return top_half_positive_indices
-
-def str2bool(value):
-    if isinstance(value, bool):
-        return value
-    if value.lower() in ('true', '1', 'yes'):
-        return True
-    elif value.lower() in ('false', '0', 'no'):
-        return False
-    else:
-        raise NotImplementedError
-
 
 def main(
     base_model_name_or_path='test',
@@ -231,15 +147,8 @@ def main(
     loss_path = "results/loss/",
     reverse_loss = False,
     with_prompt_token=False,
-    valid_dataset_name='mmlu',
     ):
-    
-    if with_prompt_token:
-        print("current also use prompt token")
-    else:
-        print("current use only response token")
         
-    # import pdb;pdb.set_trace()
     if "lora" not in base_model_name_or_path or os.path.exists(base_model_name_or_path): ## means huggingface model or existed local model
         tokenizer = AutoTokenizer.from_pretrained(base_model_name_or_path)
     else:
@@ -294,47 +203,84 @@ def main(
     if with_prompt_token:
         print("*** current also use prompt token ***")
     
+    ################ current train model loss ##############
+    # if "Llama-3.2-3B" in base_model_name: ## load from existing model
+    #     if "filtered-cured-50k" in data_type:
+    #         base_loss_path = loss_path + f"token_losses_filtered-cured-50k_all_{base_model_name}.pt" 
+    #     elif "random_subset_50k" in data_type:
+    #         base_loss_path = loss_path + f"token_losses_random_subset_50k_all_{base_model_name}.pt"    
+    #     else:
+    #         print("unknow dataset, please check whether generate the loss for base model.")
+    #         raise NotImplementedError
+        
+    #     print(f"load the first round base model from existing file: {base_loss_path}")
+    #     losses_pre = torch.load(base_loss_path)[:len(raw_labels)]
 
+    # else:
+    #     losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
+    
+    
+    # ############### reference model loss #############
+    # if "filtered-cured-50k" in data_type and ref_model_name == "Llama-3.1-8B-Instruct":
+    #     reference_loss_path = loss_path + f"token_losses_filtered-cured-50k_all_{ref_model_name}.pt"
+    # elif "random_subset_50k" in data_type and ref_model_name == "Llama-3.1-8B-Instruct":
+    #     reference_loss_path = loss_path + f"token_losses_random_subset_50k_all_{ref_model_name}.pt"
+    # else:
+    #     reference_loss_path = None
+        
+    # ### reuse the existing reference loss
+    # if  reference_loss_path and os.path.exists(reference_loss_path):
+    #     print(f"load the reference losses from existing file: {reference_loss_path}")
+    #     all_losses = torch.load(reference_loss_path)
+    #     subset_size = int(len(all_losses) / num_subset)
+    #     losses_cur = all_losses[subset_idx*subset_size:(subset_idx+1)*subset_size]
+    # else:
+    #     losses_cur = torch.load(f"results/loss/token_losses_{data_type}_{ref_model_name}.pt")
+        
+        
+    ### original loss ####
+    losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
+    losses_cur = torch.load(loss_path + f"token_losses_{data_type}_{ref_model_name}.pt")
+
+    # initialize: ignore all tokens first
     selected_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
+    ##the calculation different loss of two models
+    if reverse_loss:
+        loss_diff = [(np.array(loss2) - np.array(loss1)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
+    else:
+        loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
+
     
-    #####calculate the kl-divergence score between two logits
-    # logits_pre = torch.load(logits_path_pre)
-    # logits_cur = torch.load(logits_path_cur)
-    
-    # kl_divergence_scores = compute_kl_div_score(logits_pre, logits_cur)
-    
-    # infl_scores = torch.load(f"final_token_infl_scores/ds2_token_infl_scores_{valid_dataset_name}.pt")
-    kl_divergence_scores = torch.load(f"results/kl_div_scores/token_kl_div_scores_filtered-cured-50k-rho-baseline-global-llama3b-kl-divergence_Llama-3.2-3B.pt")
     # all_token_count = sum(len(label) for label in raw_labels)
     all_token_count = sum(1 for labels_per_sample in raw_labels for label in labels_per_sample if label != -100)
     
-    print(f"#### all token counting (prompt + response): {sum(len(label) for label in raw_labels)}\n")
-    print(f"#### all token counting (response): {all_token_count}\n")
+    print(f"#### All token counting (prompt + response): {sum(len(label) for label in raw_labels)}\n")
+    print(f"#### All token counting (response): {all_token_count}\n")
 
-    print(f"model pair: ({base_model_name}, {ref_model_name}) -- dataset: {data_type}")
+    print(f"Current model pair: ({base_model_name}, {ref_model_name}) -- dataset: {data_type}")
     
     # global-level top-k data selection
-    if select_token_level == 'global': #global-level top-k
-        print("### start global level top-k selection...")
-        select_tokens_indices = get_global_top_k_indices(raw_labels, kl_divergence_scores, data_prop)
+    if select_token_level == 'global': 
+        print("### Global level top-k selection...")
+        select_tokens_indices = get_global_top_k_indices(raw_labels, loss_diff, data_prop)
 
         select_sample_idx = [item[0] for item in select_tokens_indices]
         select_sample_idx = set(select_sample_idx)
         print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
         for i, j in select_tokens_indices:
                 selected_labels[i][j] = raw_labels[i][j] 
+                
     #sample-level top-k
-    elif select_token_level == 'sample': #sample-level top-k
-        print("### start sample level top-k selection...")
-        select_tokens_indices=get_sample_top_k_indices(raw_labels, kl_divergence_scores, data_prop)
+    elif select_token_level == 'sample':
+        print("### Sample level top-k selection...")
+        select_tokens_indices=get_sample_top_k_indices(raw_labels, loss_diff, data_prop)
         
         for i, j in select_tokens_indices:
                 selected_labels[i][j] = raw_labels[i][j] 
-           
+                
     else:
-        print("Please choose the token-level selection method from: (1) global, (2) sample, (3) union, (4) intersection (5) additional_two_tokens or (6) combine_loss!")
+        print("Please choose the token-level selection method from: (1) global or (2) sample")
         raise NotImplementedError
-    
     
     
     ## save the loss
@@ -344,7 +290,7 @@ def main(
     ### extract the sample from the original dataset and store the new dataset
     final_data_path = label_path + f"token_labels_{data_type}.pt"
     torch.save(selected_labels, final_data_path)
-    import pdb;pdb.set_trace()
+
     print(f"*** Token-level label has been stored in {final_data_path} ***")
 
 

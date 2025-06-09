@@ -55,8 +55,10 @@ Train_DATASET_LIST=(
 
 data_prop_list=(0.6) # 0.3
 
-
+root_model_path="/mnt/data1/jinlong/token_selection_output/models"
 TASK_LISTS=('mmlu' "truthfulqa" "hellaswag" "arc_challenge" "boolq" 'logiqa')
+
+
 
 for train_dataset_name in "${Train_DATASET_LIST[@]}" 
 do
@@ -72,12 +74,8 @@ do
         base_model=$base_model
     fi
 
-    ##############################################################
-    model_path="/mnt/data1/jinlong/token_selection_output/models/${base_model}"
+    model_path="${root_model_path}/${base_model}"
     model_tags=("${train_dataset_name}")
-
-    ##############################################################
-
 
     if [[ "$train_dataset_name" == *"llama3b"* ]]; then
         declare -A TASK_PARAMS=(
