@@ -19,14 +19,14 @@ reference_model="/mnt/data1/jinlong/token_selection_output/models/${base_model}/
 
 with_prompt_token=False
 token_select_pattern="semi_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
-select_token_level=global 
+select_token_level=sample 
 
 # select_token_level=global  ## token_ranking_sample_select global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
 max_seq_length=2048
 main_process_port=29509
 data_prop_list=(0.6)
 
-random_seed_list=(41 43)
+random_seed_list=(41)
 
 
 for random_seed in "${random_seed_list[@]}"; do
@@ -36,8 +36,8 @@ for random_seed in "${random_seed_list[@]}"; do
     # train_data_tag="filtered-cured-50k-shuffle-rho-baseline"
     # train_data_tag="filtered-cured-50k-rho-baseline-llama8b"
     # train_data_tag="filtered-cured-50k-rho-baseline-mistral"
-    # train_data_tag="filtered-cured-50k-rho-baseline-global-llama3b-${random_seed}"
-    train_data_tag="filtered-cured-50k-fixed-model-cleaning-mistral-${random_seed}"
+    train_data_tag="filtered-cured-50k-rho-baseline-mistral-new-${random_seed}"
+    # train_data_tag="filtered-cured-50k-fixed-model-cleaning-mistral-${random_seed}"
 
     # train_data_tag="filtered-cured-50k-rho-baseline-with-prompt"
 
@@ -53,12 +53,12 @@ for random_seed in "${random_seed_list[@]}"; do
     # #### Run calculate_loss.sh script for base model
     echo "start calculating loss for model: ${cur_train_model}"
     BATCH_SIZE_PER_GPU=6
-    bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port" "$with_prompt_token"
+    # bash_src/calculate_loss.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port" "$with_prompt_token"
 
     ### Run calculate_loss.sh script for reference model
     echo "start calculating loss for reference model: ${reference_model}"
     BATCH_SIZE_PER_GPU=6
-    bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port" "$with_prompt_token"
+    # bash_src/calculate_loss.sh "$reference_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$main_process_port" "$with_prompt_token"
 
     for data_prop in ${data_prop_list[@]}; do
         echo "*** data prop: ${data_prop} ***"

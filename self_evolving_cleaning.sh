@@ -26,7 +26,9 @@ token_select_pattern=semi_select #"semi_combine_global_half_positive_select" #'r
 ### training data
 # Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered" "filtered-cured-50k-iter-split-global_data_prop_0.3_llama3b-non-filtered-with-prompt" "filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-with-prompt")
 
-Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model")
+# Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model")
+
+Train_DATASET_LIST=("filtered-cured-50k-iter-split-global_data_prop_0.6_mistral-non-filtered-fixed-base-model")
 
 
 # Train_DATASET_LIST=("full-300k-iter-split-global_data_prop_0.6_llama3b-non-filtered-fixed-base-model" )
@@ -41,11 +43,11 @@ for train_dataset_name in ${Train_DATASET_LIST[@]}; do
     if [[ "$train_dataset_name" == *"mistral"* ]]; then
         base_model_tag=mistral
         base_model="mistralai/Mistral-7B-v0.3"
-        BATCH_SIZE_PER_GPU_finetune=10
+        BATCH_SIZE_PER_GPU_finetune=6
     elif [[ "$train_dataset_name" == *"llama3b"* ]]; then
         base_model_tag=llama3b
         base_model="meta-llama/Llama-3.2-3B"
-        BATCH_SIZE_PER_GPU=6
+        BATCH_SIZE_PER_GPU_finetune=6
     elif [[ "$train_dataset_name" == *"llama8b"* ]]; then
         base_model_tag=llama8b
         BATCH_SIZE_PER_GPU_finetune=5
@@ -143,7 +145,7 @@ for train_dataset_name in ${Train_DATASET_LIST[@]}; do
                 # Run finetune.sh script
                 echo "start finetuning..."
                 BATCH_SIZE_PER_GPU=$BATCH_SIZE_PER_GPU_finetune
-                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern" "$with_prompt_token" "$base_model"
+                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern" "$with_prompt_token" "$random_seed"
 
             fi
         done 

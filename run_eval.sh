@@ -1,54 +1,25 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-NUM_GPUs=8
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+NUM_GPUs=4
 
 
 start_time=$(date +%s)
 
 MODEL=hf #hf
 
-#### num_fewshot, batch_size, max_examples(less 1 means proportion)
-declare -A TASK_PARAMS=(
-    ["mmlu"]="5 16 0.99"
-    ["bbh"]="3 64 40"
-    ["gsm8k"]="8 48 200"
-    ["truthfulqa"]="0 128 0.99"
-    ["arc_challenge"]="0 32 0.99"
-    ["piqa"]="0 32 0.99"
-    ["hellaswag"]="0 128 0.99"
-    ["openbookqa"]="0 32 0.99"
-    ["sciq"]="0 32 0.99"
-    ["arc_easy"]="0 32 0.99"
-    ["logiqa"]="0 32 0.99"
-    ["boolq"]="0 32 0.99"
-    ["winogrande"]="0 32 0.99"
-)
 
-####### llama-3.1-8b #####
-declare -A TASK_PARAMS=(
-    ["mmlu"]="5 8 0.99"
-    ["bbh"]="3 32 40"
-    ["gsm8k"]="8 48 200"
-    ["truthfulqa"]="0 128 0.99"
-    ["arc_challenge"]="0 32 0.99"
-    ["piqa"]="0 32 0.99"
-    ["hellaswag"]="0 128 0.99"
-    ["openbookqa"]="0 32 0.99"
-    ["sciq"]="0 32 0.99"
-    ["arc_easy"]="0 32 0.99"
-    ["logiqa"]="0 32 0.99"
-    ["boolq"]="0 32 0.99"
-    ["winogrande"]="0 32 0.99"
-)
-
-
-# base_model=meta-llama/Llama-3.2-3B
+base_model=meta-llama/Llama-3.2-3B
 # base_model="meta-llama/Llama-3.1-8B-Instruct"
 # base_model="meta-llama/Llama-3.1-8B"
-base_model="mistralai/Mistral-7B-v0.3"
+# base_model="mistralai/Mistral-7B-v0.3"
 
-Train_DATASET_LIST=("base")
+# Train_DATASET_LIST=("base")
+# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-llama3b-global-low-ppl")
+# Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-llama3b-global-low-ppl-0.86")
+Train_DATASET_LIST=("filtered-cured-50k-rho-baseline-llama3b-global-low-ppl" "filtered-cured-50k-rho-baseline-llama3b-global-high-ppl")
 data_prop_list=(0.6)
-TASK_LISTS=('mmlu' "truthfulqa" "hellaswag" "arc_challenge" "boolq" 'logiqa')
+# TASK_LISTS=('mmlu' "truthfulqa" "hellaswag" "arc_challenge" "boolq" 'logiqa')
+
+TASK_LISTS=('mbpp' "gsm8k")
 
 
 
@@ -73,6 +44,8 @@ do
 
 
     if [[ "$train_dataset_name" == *"llama3b"* ]]; then
+    #### num_fewshot, batch_size, max_examples(less 1 means proportion)
+
         declare -A TASK_PARAMS=(
             ["mmlu"]="5 16 0.99"
             ["bbh"]="3 64 40"
@@ -91,6 +64,8 @@ do
             ["squad_completion"]="0 64 0.99"
             ["triviaqa"]="0 64 0.99"
             ["humaneval"]="0 64 0.99"
+            ["mbpp"]="8 48 0.99"
+
         )
     else
         declare -A TASK_PARAMS=(
@@ -111,6 +86,8 @@ do
             ["squad_completion"]="0 64 0.99"
             ["triviaqa"]="0 64 0.99"
             ["humaneval"]="0 64 0.99"
+            ["mbpp"]="8 48 0.99"
+
         )
     fi
 
@@ -154,6 +131,7 @@ do
                 ["triviaqa"]="pretrained=${pretrained_model},dtype=bfloat16"
                 ["squad_completion"]="pretrained=${pretrained_model},dtype=bfloat16"
                 ["humaneval"]="pretrained=${pretrained_model},dtype=bfloat16"
+                ["mbpp"]="pretrained=${pretrained_model},dtype=bfloat16"
 
             )
 
@@ -189,16 +167,16 @@ do
             ###########################################
             #### tydiqa eval ####
             ###########################################
-            CUDA_VISIBLE_DEVICES=0 python -m eval.tydiqa.run_eval \
-                --data_dir raw_data/eval/tydiqa/ \
-                --n_shot 1 \
-                --max_num_examples_per_lang 100 \
-                --max_context_length 512 \
-                --save_dir $OUTPUT_PATH \
-                --model_name_or_path $pretrained_model \
-                --tokenizer_name_or_path $pretrained_model \
-                --eval_batch_size 15 \
-                --use_vllm
+            # CUDA_VISIBLE_DEVICES=0 python -m eval.tydiqa.run_eval \
+            #     --data_dir raw_data/eval/tydiqa/ \
+            #     --n_shot 1 \
+            #     --max_num_examples_per_lang 100 \
+            #     --max_context_length 512 \
+            #     --save_dir $OUTPUT_PATH \
+            #     --model_name_or_path $pretrained_model \
+            #     --tokenizer_name_or_path $pretrained_model \
+            #     --eval_batch_size 15 \
+            #     --use_vllm
 
         done
     done

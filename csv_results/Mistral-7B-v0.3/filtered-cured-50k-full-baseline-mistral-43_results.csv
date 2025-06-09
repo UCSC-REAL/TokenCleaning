@@ -1,0 +1,2 @@
+,truthfulqa_mc2,tydiqa,logiqa,mmlu,hellaswag,arc_challenge,boolq,Average
+filtered-cured-50k-full-baseline-mistral-43,43.52,57.28,26.67,62.78,61.15,50.82,83.57,55.1

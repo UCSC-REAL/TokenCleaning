@@ -84,9 +84,18 @@ def get_global_top_k_indices(data, data_prop):
     
     top_k = sorted(flattened, key=lambda x: x[0], reverse=True)[:int(len(flattened)* data_prop)] ##loss
     
-    top_k_indices = [(item[1], item[2]+1) for item in top_k]  #item[2]+1 fix the first label biased to match the position
+    top_k_indices = [(item[1], item[2]) for item in top_k]  #item[2]+1 fix the first label biased to match the position
     return top_k_indices
 
+
+def get_global_bottom_k_indices(data, data_prop):
+
+    flattened = [(value, i, j) for i, sublist in enumerate(data) for j, value in enumerate(sublist)]
+    
+    top_k = sorted(flattened, key=lambda x: x[0], reverse=False)[:int(len(flattened)* data_prop)] ##loss
+    
+    top_k_indices = [(item[1], item[2]) for item in top_k]  #item[2]+1 fix the first label biased to match the position
+    return top_k_indices
 
 
 logger = get_logger(__name__)
@@ -870,7 +879,8 @@ def main():
         elif args.token_select_pattern == 'loss_ranking_select': ## loss-based or ppl-based form
             print("*** using the Loss or PPL-based Select form ***")
             ## TODO: need to check the losses file
-            loss_file = "results/loss/token_losses_filtered-cured-50k_all_reference_llama-3.2-3B-base.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
+            # loss_file = "results/loss/token_losses_filtered-cured-50k-rho-baseline-llama3b-global-low-ppl.pt" ##f"results/loss/token_losses_{train_data_tag}_{model_type}.pt"
+            loss_file = "results/loss/token_losses_filtered-cured-50k-rho-baseline_Llama-3.2-3B.pt"
             print(f"Current loss file is: {loss_file}")
             
             selected_labels = [[-100 for _ in range(len(label))] for label in orig_labels]
@@ -878,6 +888,7 @@ def main():
             losses_base_model = torch.load(loss_file)
             
             select_tokens_indices = get_global_top_k_indices(losses_base_model, args.data_prop)
+            # select_tokens_indices = get_global_bottom_k_indices(losses_base_model, args.data_prop)
 
             select_sample_idx = [item[0] for item in select_tokens_indices]
             select_sample_idx = set(select_sample_idx)
