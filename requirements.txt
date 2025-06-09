@@ -1,8 +1,7 @@
-# TODO When updating flash-attn or torch in the future, make sure to update the version in the Dockerfile 
-torch
+torch==2.6.0
 deepspeed
-accelerate==0.31.0
-transformers
+accelerate
+transformers==4.49.0
 tokenizers
 datasets
 peft
@@ -18,6 +17,6 @@ wandb
 gradio>=3.50.2
 fire
 lm-eval
-
+sentencepiece
 
 
