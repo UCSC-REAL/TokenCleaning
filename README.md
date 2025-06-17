@@ -33,7 +33,7 @@ This project investigates token quality from a noisy-label perspective and propo
 
 ## 🎉🎉 News 
 - [x] [2025.05.01] 🚀🚀 Accepted by ICML 2025.
-- [x] [2025.02.01] 🚀🚀 Code Release
+- [x] [2025.04.01] 🚀🚀 Code Release
 
 
 
