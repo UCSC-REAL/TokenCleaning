@@ -96,7 +96,7 @@ if __name__ == "__main__":
     elif 'llama-2-7b-hf' in args.base_model_name_or_path.lower(): # llama2-7b-hf
         embedding_size = 32008
     elif 'llama-3' in args.base_model_name_or_path.lower(): # Meta-Llama-3.1-8B 
-        embedding_size = 128264 #len(tokenizer): 128275 required shape 128264
+        embedding_size = 128264 
 
     elif 'llama-2-13b-hf' in args.base_model_name_or_path.lower(): # llama2-7b-hf
         embedding_size = 32008   

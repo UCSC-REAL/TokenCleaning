@@ -136,27 +136,29 @@ def get_sample_top_k_indices(raw_labels, all_losses, data_prop):
 
 
 def main(
+    tokenizer_name_or_path='test',
     base_model_name_or_path='test',
     ref_model_name_or_path='test',
     train_data=None,
-    data_prop: float = 1.0,
+    data_prop: float = 0.6,
     select_token_level="sample",
     label_path = "results/label/",
     loss_path = "results/loss/",
-    reverse_loss = False,
     with_prompt_token=False,
     ):
         
-    if "lora" not in base_model_name_or_path or os.path.exists(base_model_name_or_path): ## means huggingface model or existed local model
-        tokenizer = AutoTokenizer.from_pretrained(base_model_name_or_path)
-    else:
-        if "mistral" in base_model_name_or_path:
-            tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.3")
-        elif "llama3b" in base_model_name_or_path or "llama8b" in base_model_name_or_path:
-            tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-3B")
-        else:
-            print("unknown model.")
-    
+    # if "lora" not in base_model_name_or_path or os.path.exists(base_model_name_or_path): ## means huggingface model or existed local model
+    #     tokenizer = AutoTokenizer.from_pretrained(base_model_name_or_path)
+    # else:
+    #     if "mistral" in base_model_name_or_path:
+    #         tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.3")
+    #     elif "llama3b" in base_model_name_or_path or "llama8b" in base_model_name_or_path:
+    #         tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-3B")
+    #     else:
+    #         print("unknown model.")
+            
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path)
+
     raw_dataset = load_dataset("json", data_files=train_data)
 
     ### rename

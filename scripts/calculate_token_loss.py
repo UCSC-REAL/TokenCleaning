@@ -38,12 +38,6 @@ from transformers import (
 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
 
 
-
-# cache_dir = '/tmp/huggingface/hub/'
-# os.makedirs(cache_dir, exist_ok=True)
-
-# cache_dir=None
-
 def str2bool(value):
     if isinstance(value, bool):
         return value
@@ -467,8 +461,7 @@ def main():
     )
 
     if tokenizer_revision != args.model_revision:
-        # Warn user if tokenizer and model use different revisions; this is an unusual
-        # use case.
+        # Warn user if tokenizer and model use different revisions; this is an unusual use case.
         warning = f"""Requested tokenizer revision `{tokenizer_revision}` is different
                    from the model revision `{args.model_revision}`."""
         logger.warn(warning)
@@ -480,7 +473,6 @@ def main():
             use_fast=not args.use_slow_tokenizer,
             revision=tokenizer_revision,
             token=os.getenv("HF_TOKEN", None),
-            # cache_dir=cache_dir,
 
             
         )
@@ -491,7 +483,6 @@ def main():
             use_fast=not args.use_slow_tokenizer,
             revision=tokenizer_revision,
             token=os.getenv("HF_TOKEN", None),
-            # cache_dir=cache_dir
 
         )
     else:
@@ -508,17 +499,12 @@ def main():
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch.bfloat16,
             )
-            # bnb_config = BitsAndBytesConfig(
-            #     load_in_8bit=True  
-            # )
-            device_index = accelerator.local_process_index
-            device_map = {"": device_index} # force data-parallel training.
+
             model = AutoModelForCausalLM.from_pretrained(
                 args.model_name_or_path,
                 from_tf=bool(".ckpt" in args.model_name_or_path),
                 config=config,
                 quantization_config=bnb_config,
-                # device_map=device_map,
                 trust_remote_code=args.trust_remote_code,
                 torch_dtype=torch.bfloat16,
                 use_flash_attention_2=True if args.use_flash_attn else False,
@@ -535,7 +521,6 @@ def main():
                 use_flash_attention_2=True if args.use_flash_attn else False,
                 revision=args.model_revision,
                 token=os.getenv("HF_TOKEN", None),
-                # cache_dir=cache_dir,
             )
     else:
         logger.info("Training new model from scratch")
@@ -624,16 +609,7 @@ def main():
             desc="Tokenizing and reformatting instruction data",
         )
         lm_datasets.set_format(type="pt")
-        ### some examples may exceed the max length so that their labels will be [-100...-100] but they cannot be filtered because of the index
-        # invalid_indices = []
-        # for idx, example in enumerate(lm_datasets['train']):
-        #     if (example['labels'] == -100).all():
-        #         invalid_indices.append(idx)
-        # lm_datasets = lm_datasets.filter(lambda example: (example['labels'] != -100).any()) 
-        if args.with_prompt_token:
-            print("*** current also use prompt token ***")
-        else:
-            print("*** current only use response token ***")
+        
             
     train_dataset = lm_datasets["train"]
 
@@ -692,14 +668,10 @@ def main():
             
             token_losses = [] 
             batch_indices = []
-            token_lengths = []
             pad_length = 2048
 
             for step, batch in enumerate(active_dataloader):
-                # with accelerator.accumulate(model):
-
                 indices = batch["idx"]
-                # indices = [0 for _ in range(batch["labels"].size(0))]
                 outputs = model(input_ids=batch['input_ids'], labels=batch['labels'], attention_mask=batch['attention_mask'], use_cache=False)
 
                 if args.reduce_loss == 'mean':
@@ -740,11 +712,6 @@ def main():
                     token_losses.append(padded_token_losses)  # Save loss to analyze later
                     batch_indices.append(indices)
                     
-                    # token_lengths.append(torch.tensor([len(label[label != -100]) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
-                    # token_lengths.append(torch.tensor([len(label) - 1 for label in labels], device=accelerator.device, dtype=torch.long))
-                    # print(f"label:{shift_labels.shape};; per_token_loss: {per_token_loss.shape};; padded_token_losses; {padded_token_losses.shape} token lengths: {token_lengths[-1]}; ")
-                    # import pdb; pdb.set_trace()
-                    
                 ## We keep track of the loss at each logged step
                 total_loss += loss.detach().float()
                 
@@ -765,23 +732,18 @@ def main():
     
     all_batch_indices = accelerator.gather(torch.cat(batch_indices, dim=0))
     all_token_losses = accelerator.gather(torch.cat(token_losses, dim=0))
-    # all_token_lengths = accelerator.gather(torch.cat(token_lengths, dim=0))
     
     if accelerator.is_main_process:
         # gather the loss 
         all_batch_indices = all_batch_indices.cpu().tolist()
         all_token_losses = all_token_losses.cpu().tolist()
-        # all_token_lengths = all_token_lengths.cpu().tolist()
         
-        ###Note: avoid the index (key) replicate for unbalance data split
         gathered_results = {}
         gathered_results = dict(zip(all_batch_indices, all_token_losses)) 
         
         # Sort results by original index
         sorted_results = sorted(gathered_results.items(), key=lambda x: x[0]) 
-        
         sorted_token_losses = [x[1] for x in sorted_results]
-        # sorted_token_lengths = [x[1][1] for x in sorted_results]
         
         
         final_token_losses = []

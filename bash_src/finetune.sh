@@ -11,11 +11,10 @@ random_seed=${8:-42}
 train_data_tag=$(basename "$train_data" .json)
 
 
-GRADIENT_ACC_STEPS=1
-echo "*** Training ${model_name_or_path} using $NUM_GPUS GPUs, $BATCH_SIZE_PER_GPU batch size per GPU, $GRADIENT_ACC_STEPS gradient accumulation steps ***"
-echo "*** Training Data Path: ${train_data} ***"
-echo "*** Selected Data Proportion: ${data_prop} ***"
-echo "*** Random Seed: ${random_seed} ***"
+echo "*** Training ${model_name_or_path} using $NUM_GPUS GPUs, $BATCH_SIZE_PER_GPU batch size per GPU, 1 gradient accumulation steps ***"
+echo "*** Training data path: ${train_data} ***"
+echo "*** Selected data proportion: ${data_prop} ***"
+echo "*** Random deed: ${random_seed} ***"
 
 
 accelerate launch \
@@ -37,7 +36,7 @@ accelerate launch \
     --preprocessing_num_workers 16 \
     --checkpointing_steps epoch \
     --per_device_train_batch_size $BATCH_SIZE_PER_GPU \
-    --gradient_accumulation_steps $GRADIENT_ACC_STEPS \
+    --gradient_accumulation_steps 1 \
     --learning_rate 1e-4 \
     --lr_scheduler_type linear \
     --warmup_ratio 0.03 \

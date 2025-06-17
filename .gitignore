@@ -114,8 +114,8 @@ venv.bak/
 
 
 ### data 
-data/*
-output/*
+eval_data/
+raw_data/
 *.json
 results
 valid_dataset/*

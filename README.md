@@ -61,6 +61,7 @@ Note that our cleaning pipelines consists of **Fixed-Model Cleaning** and **Self
 
 ```bash
 # Fixed-model cleaning
+bash get_ref_model.sh
 bash fixed_model_cleaning.sh
 
 # Self-evolving cleaning
