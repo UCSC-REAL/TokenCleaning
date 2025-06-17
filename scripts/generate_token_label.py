@@ -194,7 +194,6 @@ def main(
     lm_datasets = raw_dataset.map(
         encode_function,
         batched=False,
-        # remove_columns=[name for name in raw_dataset["train"].column_names if name not in ["idx", "input_ids", "labels", "attention_mask"]],
         desc="Tokenizing and reformatting instruction data",
     )
 
@@ -203,41 +202,6 @@ def main(
     if with_prompt_token:
         print("*** current also use prompt token ***")
     
-    ################ current train model loss ##############
-    # if "Llama-3.2-3B" in base_model_name: ## load from existing model
-    #     if "filtered-cured-50k" in data_type:
-    #         base_loss_path = loss_path + f"token_losses_filtered-cured-50k_all_{base_model_name}.pt" 
-    #     elif "random_subset_50k" in data_type:
-    #         base_loss_path = loss_path + f"token_losses_random_subset_50k_all_{base_model_name}.pt"    
-    #     else:
-    #         print("unknow dataset, please check whether generate the loss for base model.")
-    #         raise NotImplementedError
-        
-    #     print(f"load the first round base model from existing file: {base_loss_path}")
-    #     losses_pre = torch.load(base_loss_path)[:len(raw_labels)]
-
-    # else:
-    #     losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
-    
-    
-    # ############### reference model loss #############
-    # if "filtered-cured-50k" in data_type and ref_model_name == "Llama-3.1-8B-Instruct":
-    #     reference_loss_path = loss_path + f"token_losses_filtered-cured-50k_all_{ref_model_name}.pt"
-    # elif "random_subset_50k" in data_type and ref_model_name == "Llama-3.1-8B-Instruct":
-    #     reference_loss_path = loss_path + f"token_losses_random_subset_50k_all_{ref_model_name}.pt"
-    # else:
-    #     reference_loss_path = None
-        
-    # ### reuse the existing reference loss
-    # if  reference_loss_path and os.path.exists(reference_loss_path):
-    #     print(f"load the reference losses from existing file: {reference_loss_path}")
-    #     all_losses = torch.load(reference_loss_path)
-    #     subset_size = int(len(all_losses) / num_subset)
-    #     losses_cur = all_losses[subset_idx*subset_size:(subset_idx+1)*subset_size]
-    # else:
-    #     losses_cur = torch.load(f"results/loss/token_losses_{data_type}_{ref_model_name}.pt")
-        
-        
     ### original loss ####
     losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
     losses_cur = torch.load(loss_path + f"token_losses_{data_type}_{ref_model_name}.pt")
@@ -254,10 +218,10 @@ def main(
     # all_token_count = sum(len(label) for label in raw_labels)
     all_token_count = sum(1 for labels_per_sample in raw_labels for label in labels_per_sample if label != -100)
     
-    print(f"#### All token counting (prompt + response): {sum(len(label) for label in raw_labels)}\n")
-    print(f"#### All token counting (response): {all_token_count}\n")
+    print(f"*** All token counting (prompt + response): {sum(len(label) for label in raw_labels)} ***")
+    print(f"*** All token counting (response): {all_token_count} ***")
 
-    print(f"Current model pair: ({base_model_name}, {ref_model_name}) -- dataset: {data_type}")
+    print(f"*** Current model pair: ({base_model_name}, {ref_model_name}) -- dataset: {data_type}***")
     
     # global-level top-k data selection
     if select_token_level == 'global': 

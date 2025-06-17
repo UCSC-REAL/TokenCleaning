@@ -8,10 +8,6 @@ import copy
 from bitsandbytes.functional import dequantize_4bit
 from peft.utils import _get_submodules
 
-# cache_dir = '/tmp/huggingface/hub/'
-# os.makedirs(cache_dir, exist_ok=True)
-
-# cache_dir=None
 
 
 def dequantize_model(model, dtype=torch.bfloat16, device="cuda"):
@@ -24,7 +20,6 @@ def dequantize_model(model, dtype=torch.bfloat16, device="cuda"):
     with torch.no_grad():
         for name, module in model.named_modules():
             if isinstance(module, cls):
-                # print(f"Dequantizing {name}...")
                 quant_state = copy.deepcopy(module.weight.quant_state)
 
                 # quant_state changed from a list in newer version of bitsandbytes (0.41.3 onwards)
@@ -71,19 +66,14 @@ if __name__ == "__main__":
         )
         base_model = AutoModelForCausalLM.from_pretrained(
             args.base_model_name_or_path if args.base_model_name_or_path else peft_config.base_model_name_or_path,
-            # load_in_4bit=True,
             torch_dtype=torch.bfloat16,
             quantization_config=quantization_config,
             device_map={"": 0} if torch.cuda.is_available() else None,
-            # cache_dir=cache_dir,
         )
-        print("###### Starting dequantize model...")
-        # base_model = dequantize_model(base_model, device=base_model.device)
         base_model = dequantize_model(base_model, device="cpu")
     else:
         base_model = AutoModelForCausalLM.from_pretrained(
             args.base_model_name_or_path if args.base_model_name_or_path else peft_config.base_model_name_or_path,
-            # cache_dir=cache_dir,
         )
 
     # If tokenizer is specified, use it. Otherwise, use the tokenizer in the lora model folder or the base model folder.
@@ -98,11 +88,7 @@ if __name__ == "__main__":
             print("No tokenizer found in the lora model folder. Using the tokenizer in the base model folder...")
             tokenizer = AutoTokenizer.from_pretrained(args.base_model_name_or_path, use_fast=args.use_fast_tokenizer)#, cache_dir=cache_dir,)
 
-
-    # import pdb;pdb.set_trace()
     embedding_size = base_model.get_input_embeddings().weight.shape[0]
-
-    print(f"####### args.base_model_name_or_path:{args.base_model_name_or_path.lower()}")
 
     #### embedding size resize
     if 'mistral' in args.base_model_name_or_path.lower(): #'mistralai/Mistral-7B-Instruct-v0.3':
@@ -115,18 +101,12 @@ if __name__ == "__main__":
     elif 'llama-2-13b-hf' in args.base_model_name_or_path.lower(): # llama2-7b-hf
         embedding_size = 32008   
 
-
-    # import pdb;pdb.set_trace()
     if len(tokenizer) > embedding_size:
         print(f"The vocabulary the tokenizer contains {len(tokenizer)-embedding_size} more tokens than the base model.")
         print("Resizing the token embeddings of the merged model...")
-        
         base_model.resize_token_embeddings(len(tokenizer))
     else:
         base_model.resize_token_embeddings(embedding_size)
-
-    
-    
 
     print("Loading the lora model...")
     lora_model = PeftModel.from_pretrained(base_model, args.lora_model_name_or_path)
@@ -139,9 +119,6 @@ if __name__ == "__main__":
     print(f"Saving merged model to {output_dir}...")
     merged_model.save_pretrained(output_dir)
     
-    # print("############### model parameters #################")
-    # print(merged_model.state_dict().keys())
-
     if args.save_tokenizer:
         print(f"Saving the tokenizer to {output_dir}...")
         tokenizer.save_pretrained(output_dir)

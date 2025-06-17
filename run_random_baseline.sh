@@ -10,8 +10,7 @@ cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 # base_model="meta-llama/Llama-3.1-8B"
 base_model="mistralai/Mistral-7B-v0.3"
 
-# reference_model="meta-llama/Llama-3.1-8B-Instruct"
-token_select_pattern="random_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+token_select_pattern=random 
 
 random_seed_list=(41 43)
 data_prop=0.6
@@ -35,6 +34,4 @@ for random_seed in "${random_seed_list[@]}"; do
 
 done
 
-
-# bash run_random_baseline.sh > zzz_filtered-cured-50k-random-baseline-0.6.log 2>&1
 

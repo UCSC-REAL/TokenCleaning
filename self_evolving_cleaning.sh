@@ -7,7 +7,7 @@ start_time=$(date +%s)
 
 #### basic config
 max_seq_length=2048
-BATCH_SIZE_PER_GPU=3 #3
+BATCH_SIZE_PER_GPU=3
 main_process_port=29527
 cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 
@@ -15,12 +15,10 @@ cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 # base_model="meta-llama/Llama-3.2-3B"
 # base_model="meta-llama/Llama-3.1-8B"
 # base_model="mistralai/Mistral-7B-v0.3"
-# reference_model="/mnt/data1/jinlong/token_selection_output/models/meta-llama/Llama-3.2-3B/lora_merged_reference_model"
-# reference_model="meta-llama/Llama-3.1-8B-Instruct"
 
 with_prompt_token=False
-select_token_level=global ## global global-positive sample-positive sample union intersection  additional_two_tokens  combine_loss
-token_select_pattern=semi_select #"semi_combine_global_half_positive_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+select_token_level=global # sample
+token_select_pattern=token_cleaning #random
 
 
 ### training data
@@ -101,22 +99,15 @@ for train_dataset_name in ${Train_DATASET_LIST[@]}; do
                 BATCH_SIZE_PER_GPU=6
                 # Run finetune.sh script
                 echo "skip warm-up round finetuning..."
-                # bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$warmup_token_select_pattern" "$with_prompt_token"
+                bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$warmup_token_select_pattern" "$with_prompt_token"
 
             else
-                # cur_train_model=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag_list[$((idx-1))]}
-                # if [[ $idx -eq 1 ]]; then
-                #     reference_model=$base_model
-                # else
-                #     reference_model=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag_list[$((idx-2))]}
-                # fi
+                cur_train_model=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag_list[$((idx-1))]}
                 if [[ $idx -eq 1 ]]; then
-                    cur_train_model="${cluster_root_path}/models/${base_model}/data_prop_0.6/lora_merged_filtered-cured-10k-warmup-${base_model_tag}"
+                    reference_model=$base_model
                 else
-                    cur_train_model=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag_list[$((idx-1))]}
+                    reference_model=$cluster_root_path/models/${base_model}/data_prop_${data_prop}/lora_merged_${train_data_tag_list[$((idx-2))]}
                 fi
-
-
 
                 #### Run calculate_loss.sh script for base model
                 echo "start calculating loss for model: ${cur_train_model}"

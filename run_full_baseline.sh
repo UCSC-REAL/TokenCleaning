@@ -11,7 +11,7 @@ cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 base_model="mistralai/Mistral-7B-v0.3"
 
 # reference_model="meta-llama/Llama-3.1-8B-Instruct"
-token_select_pattern="all_token_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+token_select_pattern="token_cleaning" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
 
 random_seed_list=(41 43)
 
@@ -22,12 +22,11 @@ data_prop=0.6
 max_seq_length=2048
 BATCH_SIZE_PER_GPU=3
 main_process_port=29509
-##########
+
+
 
 for random_seed in "${random_seed_list[@]}"; do
-    # Data and training parameters
-    # train_data_tag="filtered-cured-10k-shuffle-warmup" ## for warmup model
-    # train_data_tag="filtered-cured-10k-warmup" ## for warmup model
+
     train_data_tag="filtered-cured-50k-full-baseline-mistral-${random_seed}"
     train_data="selected_data/${train_data_tag}.json"
     cur_train_model=$base_model
@@ -41,5 +40,3 @@ for random_seed in "${random_seed_list[@]}"; do
 
 done
 
-# bash run_full_baseline.sh > zzz_filtered-cured-50k-shuffle-full-baseline.log 2>&1
-# bash run_full_baseline.sh > zzz_filtered-cured-10k-warmup_mistral.log 2>&

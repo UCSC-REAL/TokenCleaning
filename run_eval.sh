@@ -2,12 +2,6 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUs=8
 
 
-MODEL=hf #hf
-
-### model path
-# model_path=/home/jlpang/LLM_token_selection/output/models/meta-llama/Llama-3.2-3B
-
-
 #### num_fewshot, batch_size, max_examples(less 1 means proportion)
 declare -A TASK_PARAMS=(
     ["mmlu"]="5 16 0.99"
@@ -43,9 +37,8 @@ declare -A TASK_PARAMS=(
 )
 
 
-# base_model=meta-llama/Llama-3.2-3B
-# base_model="meta-llama/Llama-3.1-8B-Instruct"
-base_model="meta-llama/Llama-3.1-8B"
+base_model=meta-llama/Llama-3.2-3B
+# base_model="meta-llama/Llama-3.1-8B"
 # base_model="mistralai/Mistral-7B-v0.3"
 
 
@@ -143,27 +136,6 @@ do
 
             mkdir -p $OUTPUT_PATH
 
-            declare -A MODEL_ARGS_PARAMS=(
-                ["mmlu"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["bbh"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["gsm8k"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["truthfulqa"]="pretrained=${pretrained_model},dtype=bfloat16"  #,load_in_8bit=True
-                ["arc_challenge"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["piqa"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["hellaswag"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["openbookqa"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["sciq"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["arc_easy"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["logiqa"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["boolq"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["winogrande"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["squadv2"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["triviaqa"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["squad_completion"]="pretrained=${pretrained_model},dtype=bfloat16"
-                ["humaneval"]="pretrained=${pretrained_model},dtype=bfloat16"
-            )
-
-
             for idx in "${!TASK_LISTS[@]}"; do
 
                 task=${TASK_LISTS[$idx]}
@@ -172,12 +144,12 @@ do
                 batch_size=${params[1]}
                 max_examples_per_task=${params[2]}
                 gpu_idx=$((idx % 8))
-                model_args=${MODEL_ARGS_PARAMS[$task]}
+                model_args="pretrained=${pretrained_model},dtype=bfloat16"
 
                 echo "Running task $task with num_fewshot=$num_fewshot, batch_size=$batch_size, max_examples per task= $max_examples_per_task"
 
                 accelerate launch --multi-gpu --main_process_port 29519 --num_processes $NUM_GPUs \
-                        -m lm_eval --model $MODEL \
+                        -m lm_eval --model hf \
                         --model_args $model_args \
                         --tasks $task \
                         --batch_size $batch_size \
@@ -186,10 +158,7 @@ do
                         --output_path $OUTPUT_PATH \
                         --seed 42 \
                         --trust_remote_code
-                        # --device cuda
                         
-                sleep 3s
-
             done
 
             ###########################################

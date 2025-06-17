@@ -10,8 +10,7 @@ cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 # base_model="meta-llama/Llama-3.1-8B"
 base_model="mistralai/Mistral-7B-v0.3"
 
-# reference_model="meta-llama/Llama-3.1-8B-Instruct"
-token_select_pattern="all_token_select" #'random_semi_shift', 'semi_select', 'random_select', "loss_ranking_select", "all_token_select"
+token_select_pattern=default 
 
 random_seed_list=(41 43)
 with_prompt_token=False
@@ -24,11 +23,7 @@ main_process_port=29509
 for random_seed in "${random_seed_list[@]}"; do
 
     # Data and training parameters
-    # train_data_tag="filtered-cured-10k-warmup-llama3b-${random_seed}"
     train_data_tag="filtered-cured-10k-warmup-mistral-new-${random_seed}"
-
-    # train_data_tag="filtered-cured-10k-shuffle-warmup" ## for warmup model
-    # train_data_tag="filtered-cured-10k-warmup" ## for warmup model
 
     train_data="selected_data/${train_data_tag}.json"
     cur_train_model=$base_model
@@ -39,6 +34,3 @@ for random_seed in "${random_seed_list[@]}"; do
     bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern" "$with_prompt_token" "$random_seed"
 
 done
-
-# bash run_full_baseline.sh > zzz_filtered-cured-50k-shuffle-full-baseline.log 2>&1
-# bash run_full_baseline.sh > zzz_filtered-cured-10k-warmup_mistral.log 2>&

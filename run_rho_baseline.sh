@@ -69,9 +69,3 @@ BATCH_SIZE_PER_GPU=6
 echo "start finetuning..."
 bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern" "$with_prompt_token"
 
-
-# nohup bash run_rho_baseline.sh > zzz_filtered-cured-50k-rho-baseline.log &
-# bash run_rho_baseline.sh > zzz_filtered-cured-50k-rho-baseline-0.3.log 2>&1
-# bash run_rho_baseline.sh > zzz_filtered-cured-50k-rho-baseline-llama8b.log 2>&1
-# bash run_rho_baseline.sh > zzz_filtered-cured-50k-rho-baseline-mistral.log 2>&1
-# bash run_rho_baseline.sh > zzz_filtered-cured-50k-rho-baseline-llama3b.log 2>&1
