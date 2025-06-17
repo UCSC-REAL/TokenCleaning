@@ -561,7 +561,6 @@ def main():
                    from the model revision `{args.model_revision}`."""
         logger.warn(warning)
         
-    # import pdb;pdb.set_trace()
     
     
     if args.tokenizer_name:
@@ -749,7 +748,7 @@ def main():
 
         ### Token Cleaning ##
         if args.token_select_pattern == 'token_cleaning': 
-            print("*** Using clean tokens ***") 
+            print("*** Using cleaned tokens ***") 
             selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")           
             
         ## random selection ##

@@ -12,25 +12,19 @@ base_model="mistralai/Mistral-7B-v0.3"
 
 token_select_pattern=default 
 
-random_seed_list=(41 43)
+random_seed=42
 with_prompt_token=False
-
-
 data_prop=0.6
-max_seq_length=2048
-main_process_port=29509
 
-for random_seed in "${random_seed_list[@]}"; do
+model_path=$cluster_root_path/$(basename "$base_model")/data_prop_${data_prop}
 
-    # Data and training parameters
-    train_data_tag="filtered-cured-10k-warmup-mistral-new-${random_seed}"
 
-    train_data="selected_data/${train_data_tag}.json"
-    cur_train_model=$base_model
-    cp "selected_data/filtered-cured-10k-warmup.json" $train_data
+# Data and training parameters
+train_data_tag="filtered-cured-10k-warmup-mistral-new-${random_seed}"
+train_data="selected_data/${train_data_tag}.json"
+cp "selected_data/filtered-cured-10k-warmup.json" $train_data
 
-    BATCH_SIZE_PER_GPU=6
-    echo "start finetuning..."
-    bash_src/finetune.sh "$cur_train_model" "$train_data" "$max_seq_length" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$base_model" "$cluster_root_path" "$data_prop" "$main_process_port" "$token_select_pattern" "$with_prompt_token" "$random_seed"
+BATCH_SIZE_PER_GPU=6
+echo "start finetuning..."
+bash_src/finetune.sh "$base_model" "$train_data" "$BATCH_SIZE_PER_GPU" "$NUM_GPUS" "$model_path" "$data_prop" "$token_select_pattern" "$random_seed"
 
-done

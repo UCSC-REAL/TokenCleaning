@@ -3,9 +3,9 @@ from datasets import load_dataset
 import fire
 import os
 
-def main(data_path = 'selected_data/',
+def main(data_path = 'data',
         subset_size = 5,
-        generate_train_data_name = "ds2-50k-test",
+        generate_train_dataset_name = "ds2-50k-test",
         dataset_name = 'ds2-50k',
         ):
 
@@ -21,14 +21,11 @@ def main(data_path = 'selected_data/',
         else:
             raise FileNotFoundError(f"Dataset not found on Hugging Face or locally: {dataset_name}")
 
-
     data_size = len(dataset) // subset_size
-    
     for i in range(subset_size):
         selected_indices = [idx for idx in range(data_size *i, data_size * (i+1))]
         subset = dataset.select(selected_indices)
-        
-        subset.to_json(data_path + f"{generate_train_data_name}_{i}.json")
+        subset.to_json(data_path + f"{generate_train_dataset_name}_{i}.json")
 
 
 if __name__ == "__main__":

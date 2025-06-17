@@ -141,8 +141,6 @@ def main(
     train_data=None,
     data_prop: float = 1.0,
     select_token_level="sample",
-    subset_idx = 0,
-    num_subset = 5,
     label_path = "results/label/",
     loss_path = "results/loss/",
     reverse_loss = False,
@@ -199,8 +197,6 @@ def main(
 
     train_dataset = lm_datasets['train']
     raw_labels = train_dataset['labels']
-    if with_prompt_token:
-        print("*** current also use prompt token ***")
     
     ### original loss ####
     losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
@@ -208,14 +204,7 @@ def main(
 
     # initialize: ignore all tokens first
     selected_labels = [[-100 for _ in range(len(label))] for label in raw_labels]
-    ##the calculation different loss of two models
-    if reverse_loss:
-        loss_diff = [(np.array(loss2) - np.array(loss1)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
-    else:
-        loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
-
-    
-    # all_token_count = sum(len(label) for label in raw_labels)
+    loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
     all_token_count = sum(1 for labels_per_sample in raw_labels for label in labels_per_sample if label != -100)
     
     print(f"*** All token counting (prompt + response): {sum(len(label) for label in raw_labels)} ***")
@@ -254,7 +243,6 @@ def main(
     ### extract the sample from the original dataset and store the new dataset
     final_data_path = label_path + f"token_labels_{data_type}.pt"
     torch.save(selected_labels, final_data_path)
-
     print(f"*** Token-level label has been stored in {final_data_path} ***")
 
 

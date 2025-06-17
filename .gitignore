@@ -114,8 +114,7 @@ venv.bak/
 
 
 ### data 
-raw_data/*
-selected_data/*
+data/*
 output/*
 *.json
 results
