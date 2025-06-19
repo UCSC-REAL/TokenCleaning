@@ -9,7 +9,7 @@ data_prop=0.6
 
 ## path 
 result_path="eval_results"
-cluster_root_path="/mnt/data1/jinlong/token_selection_output"
+cluster_root_path=YOUR_ROOT_PATH
 model_path=$cluster_root_path/$(basename "$base_model")/data_prop_${data_prop}
 
 

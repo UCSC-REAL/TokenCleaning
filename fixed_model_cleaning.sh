@@ -2,15 +2,13 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 NUM_GPUS=8
 
-cluster_root_path="/mnt/data1/jinlong/token_selection_output"
+cluster_root_path=YOUR_ROOT_PATH
 root_data_path="raw_data"
 
 base_model="meta-llama/Llama-3.2-3B" #"meta-llama/Llama-3.1-8B" "mistralai/Mistral-7B-v0.3"
 
 token_select_pattern="token_cleaning" #'random'
 select_token_level=global 
-max_seq_length=2048
-main_process_port=29509
 data_prop=0.6
 random_seed=42
 BATCH_SIZE_PER_GPU=6

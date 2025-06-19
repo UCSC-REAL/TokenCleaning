@@ -6,7 +6,7 @@ NUM_GPUS=8
 start_time=$(date +%s)
 
 #### basic config
-cluster_root_path="/mnt/data1/jinlong/token_selection_output"
+cluster_root_path=YOUR_ROOT_PATH
 root_data_path="raw_data"
 
 # model config
