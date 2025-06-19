@@ -67,6 +67,8 @@ bash fixed_model_cleaning.sh
 # Self-evolving cleaning
 bash self_evolving_cleaning.sh
 ```
+The implementations of our baselines can be found in the `baselines` directory, including full, random and rho baselines.
+
 
 ## Model Evaluation
 The task performances are evaluated on the [lm-eval-hareness](https://github.com/EleutherAI/lm-evaluation-harness) repository.
