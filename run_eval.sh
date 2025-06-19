@@ -27,9 +27,7 @@ TASK_LISTS=('mmlu' "truthfulqa" "hellaswag" "arc_challenge" "boolq" 'logiqa')
 
 
 ### eval models
-Train_DATASET_LIST=("ds2-50k-self-evolving") 
-
-
+Train_DATASET_LIST=("ds2-50k-fixed-model") 
 
 
 for train_dataset_tag in "${Train_DATASET_LIST[@]}";do
@@ -74,7 +72,7 @@ for train_dataset_tag in "${Train_DATASET_LIST[@]}";do
     CUDA_VISIBLE_DEVICES=0 python -m eval.tydiqa.run_eval \
         --data_dir eval_data/eval/tydiqa/ \
         --n_shot 1 \
-        --max_num_examples_per_lang 100 \
+        --max_num_examples_per_lang 200 \
         --max_context_length 512 \
         --save_dir $OUTPUT_PATH \
         --model_name_or_path $pretrained_model \

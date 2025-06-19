@@ -147,18 +147,7 @@ def main(
     with_prompt_token=False,
     ):
         
-    # if "lora" not in base_model_name_or_path or os.path.exists(base_model_name_or_path): ## means huggingface model or existed local model
-    #     tokenizer = AutoTokenizer.from_pretrained(base_model_name_or_path)
-    # else:
-    #     if "mistral" in base_model_name_or_path:
-    #         tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.3")
-    #     elif "llama3b" in base_model_name_or_path or "llama8b" in base_model_name_or_path:
-    #         tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-3B")
-    #     else:
-    #         print("unknown model.")
-            
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path)
-
     raw_dataset = load_dataset("json", data_files=train_data)
 
     ### rename
@@ -200,7 +189,7 @@ def main(
     train_dataset = lm_datasets['train']
     raw_labels = train_dataset['labels']
     
-    ### original loss ####
+    ### load token loss ####
     losses_pre = torch.load(loss_path + f"token_losses_{data_type}_{base_model_name}.pt")
     losses_cur = torch.load(loss_path + f"token_losses_{data_type}_{ref_model_name}.pt")
 
@@ -209,25 +198,22 @@ def main(
     loss_diff = [(np.array(loss1) - np.array(loss2)).tolist() for loss1, loss2 in zip(losses_pre, losses_cur)]
     all_token_count = sum(1 for labels_per_sample in raw_labels for label in labels_per_sample if label != -100)
     
-    print(f"*** All token counting (prompt + response): {sum(len(label) for label in raw_labels)} ***")
-    print(f"*** All token counting (response): {all_token_count} ***")
-
-    print(f"*** Current model pair: ({base_model_name}, {ref_model_name}) -- dataset: {data_type}***")
+    print(f"*** Token counting (prompt + response): {sum(len(label) for label in raw_labels)} ***")
+    print(f"*** Token counting (response only): {all_token_count} ***")
     
     # global-level top-k data selection
     if select_token_level == 'global': 
-        print("### Global level top-k selection...")
+        print("*** Global level top-k selection ***")
         select_tokens_indices = get_global_top_k_indices(raw_labels, loss_diff, data_prop)
 
         select_sample_idx = [item[0] for item in select_tokens_indices]
         select_sample_idx = set(select_sample_idx)
-        print(f"selected sample size:: {len(select_sample_idx)} -- original dataset size: {len(raw_labels)}")        
         for i, j in select_tokens_indices:
                 selected_labels[i][j] = raw_labels[i][j] 
                 
     #sample-level top-k
     elif select_token_level == 'sample':
-        print("### Sample level top-k selection...")
+        print("*** Sample level top-k selection ***")
         select_tokens_indices=get_sample_top_k_indices(raw_labels, loss_diff, data_prop)
         
         for i, j in select_tokens_indices:

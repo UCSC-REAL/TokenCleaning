@@ -6,13 +6,12 @@ NUM_GPUS=8
 start_time=$(date +%s)
 
 #### basic config
-max_seq_length=2048
-BATCH_SIZE_PER_GPU=6
 cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 root_data_path="raw_data"
 
+# model config
 base_model="meta-llama/Llama-3.2-3B" #"meta-llama/Llama-3.1-8B" "mistralai/Mistral-7B-v0.3"
-
+BATCH_SIZE_PER_GPU=6
 select_token_level=global # sample
 token_select_pattern=token_cleaning #random default
 data_prop=0.6
@@ -27,7 +26,7 @@ train_dataset_tag="ds2-50k-self-evolving"
 ### subset json file generation
 python scripts/generate_subset.py --train_dataset_name $train_dataset_tag --subset_size $subset_size
 
-## Subset-level iteration ##
+## Subset-level iteration
 for idx in $(seq 0 $((subset_size - 1))); do
     train_data="${root_data_path}/${train_dataset_tag}_${idx}.json"
 

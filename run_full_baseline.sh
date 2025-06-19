@@ -7,7 +7,7 @@ cluster_root_path="/mnt/data1/jinlong/token_selection_output"
 root_data_path="raw_data"
 
 base_model="meta-llama/Llama-3.2-3B" #"meta-llama/Llama-3.1-8B" "mistralai/Mistral-7B-v0.3"
-token_select_pattern="token_cleaning" 
+token_select_pattern="default" 
 BATCH_SIZE_PER_GPU=6
 random_seed=42
 data_prop=0.6

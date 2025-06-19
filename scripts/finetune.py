@@ -329,7 +329,11 @@ def parse_args():
     parser.add_argument(
         "--with_prompt_token", type=str2bool, default=False, help="whether to add prompt tokens in the selection process"
     )
-    
+
+    parser.add_argument(
+        "--label_path", default="results/label/", help="token label path"
+    )
+
     args = parser.parse_args()
     # Sanity checks
     if args.dataset_name is None and args.train_file is None:
@@ -339,6 +343,8 @@ def parse_args():
             extension = args.train_file.split(".")[-1]
             assert extension in ["json", "jsonl"], "`train_file` should be a json/jsonl file."
     return args
+
+
 
 
 def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
@@ -555,8 +561,7 @@ def main():
     )
 
     if tokenizer_revision != args.model_revision:
-        # Warn user if tokenizer and model use different revisions; this is an unusual
-        # use case.
+        # Warn user if tokenizer and model use different revisions; this is an unusual use case.
         warning = f"""Requested tokenizer revision `{tokenizer_revision}` is different
                    from the model revision `{args.model_revision}`."""
         logger.warn(warning)
@@ -570,7 +575,6 @@ def main():
             use_fast=not args.use_slow_tokenizer,
             revision=tokenizer_revision,
             token=os.getenv("HF_TOKEN", None),
-            # cache_dir=cache_dir,
         )
         
     elif args.model_name_or_path:
@@ -581,7 +585,6 @@ def main():
             use_fast=not args.use_slow_tokenizer,
             revision=tokenizer_revision,
             token=os.getenv("HF_TOKEN", None),
-            # cache_dir=cache_dir
 
         )
     else:
@@ -601,20 +604,17 @@ def main():
             # bnb_config = BitsAndBytesConfig(
             #     load_in_8bit=True  
             # )
-            device_index = accelerator.local_process_index
-            device_map = {"": device_index} # force data-parallel training.
+
             model = AutoModelForCausalLM.from_pretrained(
                 args.model_name_or_path,
                 from_tf=bool(".ckpt" in args.model_name_or_path),
                 config=config,
                 quantization_config=bnb_config,
-                # device_map=device_map,
                 trust_remote_code=args.trust_remote_code,
                 torch_dtype=torch.bfloat16,
                 use_flash_attention_2=True if args.use_flash_attn else False,
                 revision=args.model_revision,
                 token=os.getenv("HF_TOKEN", None),
-                # cache_dir=cache_dir,
             )
         else:
             model = AutoModelForCausalLM.from_pretrained(
@@ -626,7 +626,6 @@ def main():
                 use_flash_attention_2=True if args.use_flash_attn else False,
                 revision=args.model_revision,
                 token=os.getenv("HF_TOKEN", None),
-                # cache_dir=cache_dir,
             )
     else:
         logger.info("Training new model from scratch")
@@ -749,7 +748,7 @@ def main():
         ### Token Cleaning ##
         if args.token_select_pattern == 'token_cleaning': 
             print("*** Using cleaned tokens ***") 
-            selected_labels = torch.load(f"results/label/token_labels_{args.train_data_tag}.pt")           
+            selected_labels = torch.load(args.label_path + f"token_labels_{args.train_data_tag}.pt")           
             
         ## random selection ##
         elif args.token_select_pattern == 'random': 

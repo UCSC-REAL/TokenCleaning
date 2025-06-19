@@ -241,6 +241,9 @@ def parse_args():
     parser.add_argument(
         "--with_prompt_token", type=str2bool, default=False, help="whether to use prompt tokens in the selection process"
     )
+    parser.add_argument(
+        "--loss_path", default="results/loss/", help="token loss path"
+    )
     args = parser.parse_args()
     # Sanity checks
     if args.dataset_name is None and args.train_file is None:
@@ -250,7 +253,6 @@ def parse_args():
             extension = args.train_file.split(".")[-1]
             assert extension in ["json", "jsonl"], "`train_file` should be a json/jsonl file."
     return args
-
 
 def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, with_prompt_token, add_bos=False):
     '''
@@ -345,36 +347,6 @@ def encode_with_messages_format(example, tokenizer, max_seq_length, with_prompt_
         'labels': labels.flatten(),
         'attention_mask': attention_mask.flatten(),
     }
-
-
-def save_with_accelerate(accelerator, model, tokenizer, output_dir, args):
-    # set the generation config to an empty setting to be safe.
-    # we usually do greedy decoding for generation, so this should be okay.
-    # otherwise, we get an error thrown at save time.
-    model.generation_config = transformers.GenerationConfig(
-        temperature=None,
-        top_p=None,
-        eos_token_id=tokenizer.eos_token_id,
-        bos_token_id=tokenizer.bos_token_id
-    )
-
-    unwrapped_model = accelerator.unwrap_model(model)
-    # When doing multi-gpu training, we need to use accelerator.get_state_dict(model) to get the state_dict.
-    # Otherwise, sometimes the model will be saved with only part of the parameters.
-    # Also, accelerator needs to use the wrapped model to get the state_dict.
-    state_dict = accelerator.get_state_dict(model)
-    if args.use_lora:
-        # When using lora, the unwrapped model is a PeftModel, which doesn't support the is_main_process 
-        # and has its own save_pretrained function for only saving lora modules.
-        # We have to manually specify the is_main_process outside the save_pretrained function.
-        if accelerator.is_main_process:
-            unwrapped_model.save_pretrained(output_dir, state_dict=state_dict)
-    else:
-        # don't use safetensors for saving for now
-        unwrapped_model.save_pretrained(
-            output_dir, is_main_process=accelerator.is_main_process, save_function=accelerator.save, state_dict=state_dict,
-            safe_serialization=False
-        )
 
 
 def main():
@@ -676,32 +648,21 @@ def main():
 
                 if args.reduce_loss == 'mean':
                     loss = outputs.loss
-                else:
-                    # reduce loss is sum
-                    # this ensures that we weight all tokens in the dataset equally,
-                    # rather than weighting each overall example equally when
-                    # using high amounts of gradient accumulation.
-                    # this can result in > 5 point improvements in AlpacaEval
-                    # see https://github.com/huggingface/transformers/issues/24725 for
-                    # more discussion and details.
                     
+                else:
                     logits = outputs.logits
-
                     labels = batch["labels"]
                     # Shift so that tokens < n predict n
                     shift_logits = logits[..., :-1, :].contiguous()
                     shift_labels = labels[..., 1:].contiguous()
-                    # Flatten the tokens
-                    # loss_fct = torch.nn.CrossEntropyLoss(reduction='sum')
+                    
+                    # Flatten the token-level loss
                     loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
 
                     shift_logits = shift_logits.view(-1, embedding_size)
                     shift_labels = shift_labels.view(-1)
                     # Enable model parallelism
                     shift_labels = shift_labels.to(shift_logits.device)
-                    
-                    # loss = loss_fct(shift_logits, shift_labels)
-
                     per_token_loss = loss_fct(shift_logits, shift_labels)
                     loss = per_token_loss.sum()
 
@@ -751,14 +712,13 @@ def main():
         for i, sample_label in enumerate(raw_labels):
             final_token_losses.append([0] + sorted_token_losses[i][:len(sample_label)-1])  ### [0] correct the biased weight and set the first token with loss 0
             
-        ## save the loss
-        loss_path = "results/loss/"
-        if not os.path.exists(loss_path):
-            os.makedirs(loss_path)
+        
+        if not os.path.exists(args.loss_path):
+            os.makedirs(args.loss_path)
         
         model_name = os.path.basename(args.model_name_or_path)
         data_type= os.path.basename(args.train_file).split(".json")[0]
-        final_data_path = loss_path + f"token_losses_{data_type}_{model_name}.pt"
+        final_data_path = args.loss_path + f"token_losses_{data_type}_{model_name}.pt"
         
         torch.save(final_token_losses, final_data_path)
         print(f"*** Token-level loss has been stored in {final_data_path} ***")

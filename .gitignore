@@ -113,12 +113,10 @@ env.bak/
 venv.bak/
 
 
-### data 
-eval_data/
-raw_data/
+### results 
+eval_data
+raw_data
 *.json
 results
-valid_dataset/*
-files_backup
-token_selection_results
 csv_results
+eval_results

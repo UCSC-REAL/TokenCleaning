@@ -10,8 +10,6 @@ from eval.dispatch_openai_requests import dispatch_openai_chat_requesets, dispat
 import warnings
 
 
-# cache_dir = '/tmp/huggingface/hub/'
-# os.makedirs(cache_dir, exist_ok=True)
 
 class KeyWordsCriteria(StoppingCriteria):
     def __init__(self, stop_id_sequences):
@@ -257,7 +255,6 @@ def load_hf_lm(
             load_in_8bit=True,
             token=token,
             trust_remote_code=trust_remote_code,
-            # cache_dir=cache_dir,
         )
 
     elif load_in_4bit: ### for 70B models
@@ -268,7 +265,6 @@ def load_hf_lm(
             load_in_4bit=True,
             token=token,
             trust_remote_code=trust_remote_code,
-            # cache_dir=cache_dir,
         )
         
     else:
@@ -276,11 +272,9 @@ def load_hf_lm(
             model = AutoModelForCausalLM.from_pretrained(
                 model_name_or_path,
                 device_map=device_map,
-                # load_in_4bit=True,
                 torch_dtype=torch_dtype,
                 token=token,
                 trust_remote_code=trust_remote_code,
-                # cache_dir=cache_dir,
 
             )
         else:
@@ -289,7 +283,6 @@ def load_hf_lm(
                 torch_dtype=torch_dtype,
                 token=token,
                 trust_remote_code=trust_remote_code,
-                # cache_dir=cache_dir,
             )
             if torch.cuda.is_available():
                 model = model.cuda()

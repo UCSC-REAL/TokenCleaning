@@ -75,7 +75,7 @@ For convenience, one can do evaluation by
 ```bash 
 bash run_eval.sh
 ```
-
+Note that `lm-eval-harness` repo does not contain `TydiQA` task. Here, we utilize the original code to conduct evaluation. The TydiQA dataset can be downloaded by `prepare_eval_data.sh`.
 
 ## Results Presentations
 
