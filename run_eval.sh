@@ -21,6 +21,8 @@ declare -A TASK_PARAMS=(
     ["hellaswag"]="0 128 0.99"
     ["logiqa"]="0 32 0.99"
     ["boolq"]="0 32 0.99"
+    ["arc_challenge"]="0 32 0.99"
+
 )
 
 TASK_LISTS=('mmlu' "truthfulqa" "hellaswag" "arc_challenge" "boolq" 'logiqa')

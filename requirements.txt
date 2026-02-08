@@ -16,7 +16,7 @@ tiktoken
 wandb
 gradio>=3.50.2
 fire
-lm-eval
+lm-eval==0.4.7
 sentencepiece
 vllm
 
